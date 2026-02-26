@@ -2,10 +2,10 @@ const apiKey = ""; // IMPORTANT: Add your Gemini API Key here
 
 async function askAI(prompt) {
   if (!apiKey) {
-    console.warn("Gemini API key is not set. Skipping AI analysis.");
-    return { summary: 'AI analysis skipped.', category: 'Uncategorized', tags: [] };
+    return { summary: 'API 키가 설정되지 않았습니다.', category: '기타', tags: [] };
   }
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-8b:generateContent?key=${apiKey}`;
+  // 모델명을 gemini-1.5-flash로 변경 (안정성 확보)
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
   try {
     const res = await fetch(url, {
       method: "POST",
@@ -25,14 +25,11 @@ async function askAI(prompt) {
         }
       })
     });
-    if (!res.ok) {
-      throw new Error(`HTTP error! status: ${res.status}`);
-    }
     const json = await res.json();
     return JSON.parse(json.candidates[0].content.parts[0].text);
   } catch (error) {
-    console.error("Error calling Gemini API:", error);
-    return { summary: 'AI analysis failed.', category: 'Uncategorized', tags: [] };
+    console.error("AI Analysis Error:", error);
+    return { summary: '분석 실패', category: '미분류', tags: [] };
   }
 }
 
@@ -45,6 +42,6 @@ chrome.runtime.onMessage.addListener((msg, sender, sendRes) => {
         chrome.storage.local.set({ dumps: [item, ...r.dumps] }, () => sendRes({ success: true }));
       });
     });
-    return true;
+    return true; 
   }
 });
