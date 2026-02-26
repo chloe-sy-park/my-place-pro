@@ -1,0 +1,15 @@
+{
+  "manifest_version": 3,
+  "name": "My Mind Pro",
+  "version": "1.4",
+  "permissions": ["storage", "activeTab", "scripting"],
+  "action": { "default_popup": "popup.html" },
+  "options_page": "dashboard.html",
+  "background": { "service_worker": "background.js" },
+  "content_scripts": [{
+    "matches": ["<all_urls>"],
+    "js": ["content.js"],
+    "css": ["content.css"]
+  }],
+  "host_permissions": ["https://*.googleapis.com/*"]
+}
