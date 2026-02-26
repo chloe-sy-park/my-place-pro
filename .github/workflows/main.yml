@@ -11,11 +11,16 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Replace API Key
+    # .github/workflows/main.yml 수정본
+    - name: Replace API Keys and Supabase Info
       run: |
-        # background.js와 popup.js 모두 키 주입
+        # Gemini API 키 주입
         sed -i "s/const apiKey = \"\";/const apiKey = \"${{ secrets.GEMINI_API_KEY }}\";/g" background.js
         sed -i "s/const apiKey = \"\";/const apiKey = \"${{ secrets.GEMINI_API_KEY }}\";/g" popup.js
+        
+        # Supabase 정보 주입
+        sed -i "s/const SUPABASE_URL = \"\";/const SUPABASE_URL = \"${{ secrets.SUPABASE_URL }}\";/g" background.js
+        sed -i "s/const SUPABASE_KEY = \"\";/const SUPABASE_KEY = \"${{ secrets.SUPABASE_ANON_KEY }}\";/g" background.js
     
     - name: Package Extension
       run: |
