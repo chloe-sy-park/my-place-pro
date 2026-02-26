@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>.active { background: #6366f1; color: white; }</style>
+</head>
+<body class="bg-slate-50 flex h-screen overflow-hidden font-sans">
+  <aside class="w-64 bg-white border-r border-slate-200 p-6 flex flex-col">
+    <h1 class="text-2xl font-black text-indigo-600 mb-8 italic">MY MIND</h1>
+    <div id="boards" class="flex-1 space-y-1"></div>
+    <button id="add-b" class="text-xs font-bold text-indigo-500 p-2">+ New Board</button>
+  </aside>
+  <main class="flex-1 flex flex-col">
+    <header class="h-20 px-10 flex items-center justify-between border-b bg-white/50 backdrop-blur">
+      <h2 id="b-title" class="text-xl font-bold">Inbox</h2>
+    </header>
+    <div id="grid" class="flex-1 overflow-y-auto p-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"></div>
+  </main>
+  <!-- Detail Modal -->
+  <div id="modal" class="hidden fixed inset-0 bg-black/50 backdrop-blur flex justify-end">
+    <div class="w-full max-w-xl bg-white h-full p-8 overflow-y-auto space-y-6">
+      <button id="close" class="text-2xl">&times;</button>
+      <div id="m-cat" class="text-[10px] font-black bg-indigo-50 text-indigo-600 px-2 py-1 rounded w-fit uppercase"></div>
+      <h2 id="m-title" class="text-2xl font-bold"></h2>
+      <p id="m-sum" class="italic text-slate-600 border-l-4 border-indigo-500 pl-4"></p>
+      <div id="m-content" class="bg-slate-50 p-4 rounded-xl text-sm leading-relaxed"></div>
+      <div class="border-t pt-6">
+        <h4 class="text-xs font-bold text-slate-400 mb-4 uppercase">Threads</h4>
+        <div id="t-list" class="space-y-3 mb-4"></div>
+        <div class="flex gap-2">
+          <input id="t-input" class="flex-1 bg-slate-100 border-none p-3 rounded-lg text-sm" placeholder="메모 추가...">
+          <button id="t-add" class="bg-indigo-600 text-white px-4 rounded-lg font-bold">Add</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="dashboard.js"></script>
+</body>
+</html>
