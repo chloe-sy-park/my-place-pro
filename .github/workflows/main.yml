@@ -1,0 +1,31 @@
+name: Build and Package Chrome Extension
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Replace API Key
+      run: |
+        sed -i "s/const apiKey = "";/const apiKey = "${{ secrets.GEMINI_API_KEY }}";/g" background.js
+    
+    - name: Install dependencies and build
+      run: |
+        # No dependencies to install for this project
+        echo "No build step required"
+
+    - name: Package Extension
+      run: |
+        zip -r extension.zip .
+        
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: extension
+        path: extension.zip
