@@ -1,4 +1,4 @@
-const apiKey = ""; // Runtime provides the key
+const apiKey = ""; // API 키는 보안을 위해 사용자 설정으로 옮기는 것이 좋습니다.
 
 function getYouTubeId(url) {
   const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=|shorts\/)([^#\&\?]*).*/;
@@ -7,14 +7,23 @@ function getYouTubeId(url) {
 }
 
 async function callGemini(prompt) {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+  // 모델명을 현재 사용 가능한 gemini-1.5-flash로 수정
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
   const response = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { responseMimeType: "application/json", 
-        responseSchema: { type: "OBJECT", properties: { summary: { type: "STRING" }, tags: { type: "ARRAY", items: { type: "STRING" } } } } }
+      generationConfig: { 
+        responseMimeType: "application/json", 
+        responseSchema: { 
+          type: "OBJECT", 
+          properties: { 
+            summary: { type: "STRING" }, 
+            tags: { type: "ARRAY", items: { type: "STRING" } } 
+          } 
+        } 
+      }
     })
   });
   const data = await response.json();
@@ -23,7 +32,6 @@ async function callGemini(prompt) {
 
 document.addEventListener('DOMContentLoaded', async () => {
   const boardSelect = document.getElementById('board-select');
-  const thumbPreview = document.getElementById('video-preview');
   const thumbImg = document.getElementById('thumb-img');
   const saveBtn = document.getElementById('save-btn');
   const status = document.getElementById('status');
@@ -31,14 +39,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   let [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   const videoId = getYouTubeId(tab.url);
 
-  // 보드 목록 로드
   chrome.storage.local.get({ boards: ['Inbox'] }, (res) => {
     boardSelect.innerHTML = res.boards.map(b => `<option value="${b}">${b}</option>`).join('');
   });
 
-  // 비디오 감지 및 썸네일 설정
   if (videoId) {
-    thumbPreview.classList.remove('hidden');
+    document.getElementById('video-preview').classList.remove('hidden');
     thumbImg.src = `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`;
   }
 
@@ -63,11 +69,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         note: document.getElementById('note').value,
         summary: aiData.summary,
         tags: aiData.tags,
+        category: "Web", // 대시보드 표시를 위한 기본 카테고리 추가
         timestamp: new Date().toLocaleDateString()
       };
 
-      chrome.storage.local.get({ minds: [] }, (res) => {
-        chrome.storage.local.set({ minds: [newItem, ...res.minds] }, () => {
+      // 저장 키를 'minds'에서 'dumps'로 통일하여 대시보드와 연동
+      chrome.storage.local.get({ dumps: [] }, (res) => {
+        chrome.storage.local.set({ dumps: [newItem, ...res.dumps] }, () => {
           status.textContent = "저장 완료!";
           setTimeout(() => window.close(), 1000);
         });
@@ -77,6 +85,4 @@ document.addEventListener('DOMContentLoaded', async () => {
       status.textContent = "오류 발생. 다시 시도해 주세요.";
     }
   });
-
-  document.getElementById('go-dashboard').addEventListener('click', () => chrome.runtime.openOptionsPage());
 });
