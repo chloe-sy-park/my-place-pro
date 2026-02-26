@@ -1,7 +1,7 @@
 let target = null;
 const btn = document.createElement('button');
 btn.id = 'mm-pin-btn';
-btn.innerHTML = '<span>Save to Mind</span>';
+btn.innerHTML = '<span>Save to JustDump</span>';
 document.body.appendChild(btn);
 
 document.addEventListener('mouseover', (e) => {
@@ -14,7 +14,7 @@ document.addEventListener('mouseover', (e) => {
     btn.style.top = `${rect.top + window.scrollY + 10}px`;
     btn.style.left = `${rect.left + window.scrollX + 10}px`;
     btn.style.display = 'flex';
-    btn.innerHTML = isArticle ? '<span>Save Article</span>' : '<span>Save to Mind</span>';
+    btn.innerHTML = isArticle ? '<span>Save Article</span>' : '<span>Save to JustDump</span>';
   }
 });
 
