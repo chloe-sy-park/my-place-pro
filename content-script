@@ -1,0 +1,35 @@
+let target = null;
+const btn = document.createElement('button');
+btn.id = 'mm-pin-btn';
+btn.innerHTML = '<span>Save to Mind</span>';
+document.body.appendChild(btn);
+
+document.addEventListener('mouseover', (e) => {
+  const isMedia = (e.target.tagName === 'IMG' || e.target.tagName === 'VIDEO') && e.target.offsetWidth > 100;
+  const isArticle = (e.target.tagName === 'P' || e.target.tagName === 'H1') && e.altKey;
+
+  if (isMedia || isArticle) {
+    target = e.target;
+    const rect = target.getBoundingClientRect();
+    btn.style.top = `${rect.top + window.scrollY + 10}px`;
+    btn.style.left = `${rect.left + window.scrollX + 10}px`;
+    btn.style.display = 'flex';
+    btn.innerHTML = isArticle ? '<span>Save Article</span>' : '<span>Save to Mind</span>';
+  }
+});
+
+btn.onclick = () => {
+  const isArt = btn.innerText.includes('Article');
+  const data = {
+    title: document.title, url: window.location.href,
+    type: isArt ? 'article' : 'media',
+    mediaUrl: target.src || target.currentSrc || null,
+    text: isArt ? document.body.innerText.slice(0, 1500) : ""
+  };
+  btn.innerText = 'Saving...';
+  chrome.runtime.sendMessage({ action: 'save', data }, () => {
+    btn.innerText = 'Saved!';
+    btn.classList.add('saved');
+    setTimeout(() => btn.style.display = 'none', 1000);
+  });
+};
