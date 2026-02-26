@@ -9,12 +9,12 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4 # v3에서 v4로 업데이트
+    - uses: actions/checkout@v4
 
     - name: Replace API Key
       run: |
+        # background.js와 popup.js 모두 키 주입
         sed -i "s/const apiKey = \"\";/const apiKey = \"${{ secrets.GEMINI_API_KEY }}\";/g" background.js
-        # popup.js에도 apiKey가 있으므로 함께 교체해주는 것이 좋습니다.
         sed -i "s/const apiKey = \"\";/const apiKey = \"${{ secrets.GEMINI_API_KEY }}\";/g" popup.js
     
     - name: Package Extension
@@ -22,7 +22,7 @@ jobs:
         zip -r extension.zip .
         
     - name: Upload Artifact
-      uses: actions/upload-artifact@v4 # v3에서 v4로 업데이트 (오류 해결 핵심)
+      uses: actions/upload-artifact@v4
       with:
         name: extension
         path: extension.zip
