@@ -1,0 +1,38 @@
+const apiKey = ""; // Gemini API Key
+
+async function askAI(prompt) {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: { 
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: "OBJECT",
+          properties: {
+            summary: { type: "STRING" },
+            category: { type: "STRING" },
+            tags: { type: "ARRAY", items: { type: "STRING" } }
+          }
+        }
+      }
+    })
+  });
+  const json = await res.json();
+  return JSON.parse(json.candidates[0].content.parts[0].text);
+}
+
+chrome.runtime.onMessage.addListener((msg, sender, sendRes) => {
+  if (msg.action === 'save') {
+    const p = `Analyze: ${msg.data.title}. Content: ${msg.data.text.slice(0, 500)}. 1-sentence Korean summary, 1 category, 3 tags.`;
+    askAI(p).then(ai => {
+      chrome.storage.local.get({ minds: [] }, (r) => {
+        const item = { ...msg.data, ...ai, id: Date.now(), threads: [], date: new Date().toLocaleDateString() };
+        chrome.storage.local.set({ minds: [item, ...r.minds] }, () => sendRes({ success: true }));
+      });
+    });
+    return true;
+  }
+});
