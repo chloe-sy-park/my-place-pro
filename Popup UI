@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="w-80 p-4 bg-slate-50">
+  <div class="flex justify-between items-center mb-4">
+    <h1 class="font-black text-indigo-600">MY MIND</h1>
+    <button id="dash" class="text-xs font-bold text-slate-400 underline">Boards</button>
+  </div>
+  <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+    <p class="text-xs text-slate-500 mb-2">웹페이지나 이미지 위에 마우스를 올리면<br><b>Pin 버튼</b>이 나타납니다.</p>
+    <p class="text-[10px] text-indigo-400">Tip: 본문은 Alt 키를 누르고 마우스를 올리세요.</p>
+  </div>
+  <script>
+    document.getElementById('dash').onclick = () => chrome.runtime.openOptionsPage();
+  </script>
+</body>
+</html>
