@@ -1,8 +1,11 @@
-const SUPABASE_URL = ""; // Build-time injected
-const SUPABASE_KEY = ""; // Build-time injected
-const TRIAL_FUNCTION_URL = ""; // Build-time injected: ${SUPABASE_URL}/functions/v1/analyze
+const SUPABASE_URL = "https://gohuxtohtmajbkxkwoaq.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdvaHV4dG9odG1hamJreGt3b2FxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIxMDQ2MzgsImV4cCI6MjA4NzY4MDYzOH0.SQTHVc0VgdeJDHYbCJ0L8VjgxgBTiKwHbcWMENvOHdc";
+const TRIAL_FUNCTION_URL = "https://gohuxtohtmajbkxkwoaq.supabase.co/functions/v1/analyze";
 
 const DAILY_TRIAL_LIMIT = 10;
+
+// Open side panel when extension icon is clicked
+chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
 
 // First-run: generate installID and open settings on fresh install
 chrome.runtime.onInstalled.addListener((details) => {

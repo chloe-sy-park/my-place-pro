@@ -1,5 +1,10 @@
 let dumps = [], boards = ['Inbox'], currentB = 'Inbox', activeId = null;
 
+function getYouTubeId(url) {
+  const match = (url || '').match(/(?:youtu\.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=|shorts\/)([^#&?]*)/);
+  return (match && match[1].length === 11) ? match[1] : null;
+}
+
 // --- Data Loading ---
 const load = () => {
   chrome.storage.local.get({ dumps: [], boards: ['Inbox'] }, (res) => {
@@ -121,6 +126,12 @@ const openM = (id) => {
 
   document.getElementById('m-cat').textContent = m.category || '';
   document.getElementById('m-title').textContent = m.title;
+
+  const urlEl = document.getElementById('m-url');
+  urlEl.href = m.url || '#';
+  urlEl.textContent = m.url || '';
+  urlEl.style.display = m.url ? '' : 'none';
+
   document.getElementById('m-sum').textContent = m.summary || '';
 
   // Tags
@@ -136,7 +147,16 @@ const openM = (id) => {
   // Content
   const contentEl = document.getElementById('m-content');
   contentEl.textContent = '';
-  if (m.mediaUrl) {
+  const ytId = m.videoId || getYouTubeId(m.url);
+  if (ytId) {
+    const iframe = document.createElement('iframe');
+    iframe.src = `https://www.youtube.com/embed/${ytId}`;
+    iframe.className = 'w-full aspect-video rounded-lg';
+    iframe.setAttribute('allowfullscreen', '');
+    iframe.setAttribute('frameborder', '0');
+    iframe.setAttribute('allow', 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture');
+    contentEl.appendChild(iframe);
+  } else if (m.mediaUrl) {
     if (isVideo(m.mediaUrl)) {
       const video = document.createElement('video');
       video.src = m.mediaUrl;
