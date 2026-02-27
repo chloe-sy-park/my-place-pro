@@ -46,13 +46,16 @@ const render = () => {
     card.className = 'bg-white/60 backdrop-blur p-6 rounded-3xl border border-white/40 shadow-sm hover:shadow-xl hover:bg-white/80 cursor-pointer transition';
     card.addEventListener('click', () => openM(m.id));
 
-    const img = document.createElement('img');
-    img.id = `thumb-${m.id}`;
-    img.className = 'w-full h-32 object-cover rounded-lg mb-4';
-    if (m.mediaUrl && !isVideo(m.mediaUrl)) {
-      img.src = m.mediaUrl;
+    const ytId = m.videoId || getYouTubeId(m.url);
+    const thumbUrl = ytId ? `https://img.youtube.com/vi/${ytId}/mqdefault.jpg` : m.mediaUrl;
+    if (thumbUrl && !isVideo(thumbUrl)) {
+      const img = document.createElement('img');
+      img.id = `thumb-${m.id}`;
+      img.className = 'w-full h-32 object-cover rounded-lg mb-4';
+      img.src = thumbUrl;
+      img.onerror = () => img.remove();
+      card.appendChild(img);
     }
-    card.appendChild(img);
 
     const badge = document.createElement('span');
     badge.className = 'text-[9px] font-bold bg-slate-100/80 px-2 py-0.5 rounded text-slate-400 uppercase';
@@ -70,14 +73,6 @@ const render = () => {
     card.appendChild(summary);
 
     grid.appendChild(card);
-
-    // Generate video thumbnails async
-    if (m.mediaUrl && isVideo(m.mediaUrl)) {
-      generateVideoThumbnail(m.mediaUrl).then(thumb => {
-        const thumbEl = document.getElementById(`thumb-${m.id}`);
-        if (thumbEl) thumbEl.src = thumb;
-      }).catch(() => {});
-    }
   });
 };
 
