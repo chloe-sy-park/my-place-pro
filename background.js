@@ -1,17 +1,20 @@
 const SUPABASE_URL = ""; // Build-time injected
 const SUPABASE_KEY = ""; // Build-time injected
+const TRIAL_FUNCTION_URL = ""; // Build-time injected: ${SUPABASE_URL}/functions/v1/analyze
 
-// First-run: open settings page if no API key is configured
-chrome.runtime.onInstalled.addListener(() => {
-  chrome.storage.local.get(['installID', 'geminiApiKey'], (res) => {
+const DAILY_TRIAL_LIMIT = 10;
+
+// First-run: generate installID and open settings on fresh install
+chrome.runtime.onInstalled.addListener((details) => {
+  chrome.storage.local.get(['installID'], (res) => {
     if (!res.installID) {
       const uuid = `user_${Math.random().toString(36).substring(2, 11)}`;
       chrome.storage.local.set({ installID: uuid });
     }
-    if (!res.geminiApiKey) {
-      chrome.tabs.create({ url: chrome.runtime.getURL('settings.html') });
-    }
   });
+  if (details.reason === 'install') {
+    chrome.tabs.create({ url: chrome.runtime.getURL('settings.html') });
+  }
 });
 
 // Supabase sync (only when user has opted in)
@@ -37,14 +40,49 @@ async function syncToSupabase(payload) {
   }
 }
 
-async function askAI(prompt) {
-  const { geminiApiKey } = await chrome.storage.local.get({ geminiApiKey: '' });
-
-  if (!geminiApiKey) {
+// Trial: call Edge Function proxy (no API key exposed)
+async function askAITrial(prompt, installID) {
+  if (!TRIAL_FUNCTION_URL || !SUPABASE_KEY) {
     return { summary: 'AI analysis was skipped.', category: 'Uncategorized', tags: [], board: 'Inbox' };
   }
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-8b:generateContent?key=${geminiApiKey}`;
+  try {
+    const res = await fetch(TRIAL_FUNCTION_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${SUPABASE_KEY}`
+      },
+      body: JSON.stringify({ prompt, installID })
+    });
+
+    const json = await res.json();
+
+    if (json.error === "limit_reached") {
+      return {
+        summary: 'Free trial limit reached. Add your API key in Settings for unlimited use.',
+        category: 'Uncategorized', tags: [], board: 'Inbox'
+      };
+    }
+    if (json.error) {
+      return { summary: 'AI analysis failed.', category: 'Uncategorized', tags: [], board: 'Inbox' };
+    }
+
+    // Update client-side trial counter
+    const today = new Date().toISOString().split('T')[0];
+    const store = await chrome.storage.local.get({ trialDate: '', trialCount: 0 });
+    const count = store.trialDate === today ? store.trialCount + 1 : 1;
+    await chrome.storage.local.set({ trialDate: today, trialCount: count });
+
+    return json;
+  } catch (_) {
+    return { summary: 'AI analysis failed.', category: 'Uncategorized', tags: [], board: 'Inbox' };
+  }
+}
+
+// Direct Gemini call (user's own API key)
+async function askAIDirect(prompt, apiKey) {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-8b:generateContent?key=${apiKey}`;
   try {
     const res = await fetch(url, {
       method: "POST",
@@ -73,6 +111,15 @@ async function askAI(prompt) {
   } catch (_) {
     return { summary: 'AI analysis failed.', category: 'Uncategorized', tags: [], board: 'Inbox' };
   }
+}
+
+async function askAI(prompt) {
+  const { geminiApiKey, installID } = await chrome.storage.local.get({ geminiApiKey: '', installID: '' });
+
+  if (geminiApiKey) {
+    return askAIDirect(prompt, geminiApiKey);
+  }
+  return askAITrial(prompt, installID);
 }
 
 chrome.runtime.onMessage.addListener((msg, sender, sendRes) => {

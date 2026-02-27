@@ -21,13 +21,14 @@ jobs:
         npm ci
         npm run build:css
 
-    - name: Inject Supabase credentials
+    - name: Inject Supabase credentials and trial URL
       env:
         SUPABASE_URL_VAL: ${{ secrets.SUPABASE_URL }}
         SUPABASE_KEY_VAL: ${{ secrets.SUPABASE_ANON_KEY }}
       run: |
         sed -i "s|const SUPABASE_URL = \"\";|const SUPABASE_URL = \"${SUPABASE_URL_VAL}\";|g" background.js
         sed -i "s|const SUPABASE_KEY = \"\";|const SUPABASE_KEY = \"${SUPABASE_KEY_VAL}\";|g" background.js
+        sed -i "s|const TRIAL_FUNCTION_URL = \"\";|const TRIAL_FUNCTION_URL = \"${SUPABASE_URL_VAL}/functions/v1/analyze\";|g" background.js
 
     - name: Package Extension
       run: |
