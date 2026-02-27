@@ -91,12 +91,25 @@ function extractContext(el) {
 }
 
 document.addEventListener('mouseover', (e) => {
-  const isMedia = (e.target.tagName === 'IMG' || e.target.tagName === 'VIDEO') && e.target.offsetWidth > 100;
-  const isArticle = (e.target.tagName === 'P' || e.target.tagName === 'H1') && e.altKey;
+  let el = e.target;
+  let isMedia = (el.tagName === 'IMG' || el.tagName === 'VIDEO') && el.offsetWidth > 100;
+  const isArticle = (el.tagName === 'P' || el.tagName === 'H1') && e.altKey;
+
+  // Instagram/Twitter/etc: images are behind overlay divs — find the image in the container
+  if (!isMedia && !isArticle) {
+    const container = el.closest('article, [data-testid], [role="link"], [role="button"]');
+    if (container) {
+      const img = container.querySelector('img[src]');
+      if (img && img.offsetWidth > 100) {
+        el = img;
+        isMedia = true;
+      }
+    }
+  }
 
   if (isMedia || isArticle) {
-    target = e.target;
-    const rect = target.getBoundingClientRect();
+    target = el;
+    const rect = el.getBoundingClientRect();
     btn.style.top = `${rect.top + window.scrollY + 10}px`;
     btn.style.left = `${rect.left + window.scrollX + 10}px`;
     btn.style.display = 'flex';
