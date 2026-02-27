@@ -17,7 +17,7 @@ My Place Pro는 사용자가 웹 서핑 중 마주치는 파편화된 정보(이
  * 아티클 리더 모드: Alt + 마우스 오버를 통해 복잡한 웹페이지에서 본문 텍스트만 추출하여 저장.
  * 멀티미디어 감지: 유튜브 ID 추출을 통한 자동 썸네일 생성 및 인라인 재생 지원.
 3.2 AI 분석 및 자동화 (AI Intelligence)
- * 자동 요약: AI 모델(Open AI)을 활용하여 콘텐츠 내용을 한 문장으로 요약.
+ * 자동 요약: AI 모델(Google Gemini)을 활용하여 콘텐츠 내용을 한 문장으로 요약.
  * 스마트 분류: 분석된 내용을 바탕으로 카테고리(기술, 디자인, 뉴스 등) 및 태그 자동 생성.
  * 보드 추천: 콘텐츠 성격에 맞는 보드를 제안하여 정리 시간 단축.
 3.3 지식 관리 및 연결 (Knowledge Management)
@@ -27,7 +27,7 @@ My Place Pro는 사용자가 웹 서핑 중 마주치는 파편화된 정보(이
 4. 기술 스택 (Technical Stack)
  * Frontend: HTML5, Tailwind CSS, JavaScript (Vanilla JS).
  * Extension: Chrome Extension Manifest V3.
- * AI Engine: OpenAI got-4o mini API.
+ * AI Engine: Google Gemini 1.5 Flash-8B API.
  * Storage: Chrome Local Storage API (보안 및 오프라인 접근성 확보).
 5. 사용자 경험 및 디자인 (UX/UI)
  * 심플함: 사용자의 브라우징 흐름을 방해하지 않는 투명/블러(Blur) UI 지향.

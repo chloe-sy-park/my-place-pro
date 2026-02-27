@@ -11,21 +11,20 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    # .github/workflows/main.yml 수정본
     - name: Replace API Keys and Supabase Info
+      env:
+        GEMINI_KEY: ${{ secrets.GEMINI_API_KEY }}
+        SUPABASE_URL_VAL: ${{ secrets.SUPABASE_URL }}
+        SUPABASE_KEY_VAL: ${{ secrets.SUPABASE_ANON_KEY }}
       run: |
-        # Gemini API 키 주입
-        sed -i "s/const apiKey = \"\";/const apiKey = \"${{ secrets.GEMINI_API_KEY }}\";/g" background.js
-        sed -i "s/const apiKey = \"\";/const apiKey = \"${{ secrets.GEMINI_API_KEY }}\";/g" popup.js
-        
-        # Supabase 정보 주입
-        sed -i "s/const SUPABASE_URL = \"\";/const SUPABASE_URL = \"${{ secrets.SUPABASE_URL }}\";/g" background.js
-        sed -i "s/const SUPABASE_KEY = \"\";/const SUPABASE_KEY = \"${{ secrets.SUPABASE_ANON_KEY }}\";/g" background.js
-    
+        sed -i "s|const apiKey = \"\";|const apiKey = \"${GEMINI_KEY}\";|g" background.js
+        sed -i "s|const SUPABASE_URL = \"\";|const SUPABASE_URL = \"${SUPABASE_URL_VAL}\";|g" background.js
+        sed -i "s|const SUPABASE_KEY = \"\";|const SUPABASE_KEY = \"${SUPABASE_KEY_VAL}\";|g" background.js
+
     - name: Package Extension
       run: |
-        zip -r extension.zip .
-        
+        zip extension.zip manifest.json background.js content.js content.css popup.html popup.js dashboard.html dashboard.js INSTRUCTIONS.md
+
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
       with:

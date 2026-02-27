@@ -5,32 +5,49 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <style>.active { background: #6366f1; color: white; }</style>
 </head>
-<body class="bg-slate-50 flex h-screen overflow-hidden font-sans">
-  <aside class="w-64 bg-white border-r border-slate-200 p-6 flex flex-col">
+<body class="bg-gradient-to-br from-slate-50 via-indigo-50/30 to-slate-100 flex h-screen overflow-hidden font-sans">
+  <aside class="w-64 bg-white/70 backdrop-blur-xl border-r border-white/40 p-6 flex flex-col">
     <h1 class="text-2xl font-black text-indigo-600 mb-8 italic">JustDump</h1>
     <div id="boards" class="flex-1 space-y-1"></div>
-    <button id="add-b" class="text-xs font-bold text-indigo-500 p-2">+ New Board</button>
+    <button id="add-b" class="text-xs font-bold text-indigo-500 p-2 hover:bg-indigo-50 rounded-lg transition">+ New Board</button>
   </aside>
   <main class="flex-1 flex flex-col">
-    <header class="h-20 px-10 flex items-center justify-between border-b bg-white/50 backdrop-blur">
+    <header class="h-20 px-10 flex items-center justify-between border-b border-white/30 bg-white/40 backdrop-blur-xl">
       <h2 id="b-title" class="text-xl font-bold">Inbox</h2>
+      <span id="item-count" class="text-xs text-slate-400"></span>
     </header>
-    <div id="grid" class="flex-1 overflow-y-auto p-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"></div>
+    <div id="grid" class="flex-1 overflow-y-auto p-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 auto-rows-min"></div>
   </main>
   <!-- Detail Modal -->
-  <div id="modal" class="hidden fixed inset-0 bg-black/50 backdrop-blur flex justify-end">
-    <div class="w-full max-w-xl bg-white h-full p-8 overflow-y-auto space-y-6">
-      <button id="close" class="text-2xl">&times;</button>
-      <div id="m-cat" class="text-[10px] font-black bg-indigo-50 text-indigo-600 px-2 py-1 rounded w-fit uppercase"></div>
+  <div id="modal" class="hidden fixed inset-0 bg-black/40 backdrop-blur-sm flex justify-end z-50">
+    <div class="w-full max-w-xl bg-white/90 backdrop-blur-xl h-full p-8 overflow-y-auto space-y-6 shadow-2xl">
+      <div class="flex justify-between items-center">
+        <button id="close" class="text-2xl text-slate-400 hover:text-slate-600 transition">&times;</button>
+        <button id="delete-item" class="text-xs text-red-400 hover:text-red-600 font-bold transition">Delete</button>
+      </div>
+      <div class="flex items-center gap-3 flex-wrap">
+        <div id="m-cat" class="text-[10px] font-black bg-indigo-50 text-indigo-600 px-2 py-1 rounded uppercase"></div>
+        <div class="flex items-center gap-2">
+          <span class="text-[10px] text-slate-400">Board:</span>
+          <select id="m-board" class="text-xs bg-slate-100 border-none rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-indigo-300"></select>
+        </div>
+      </div>
       <h2 id="m-title" class="text-2xl font-bold"></h2>
       <p id="m-sum" class="italic text-slate-600 border-l-4 border-indigo-500 pl-4"></p>
-      <div id="m-content" class="bg-slate-50 p-4 rounded-xl text-sm leading-relaxed"></div>
-      <div class="border-t pt-6">
+      <div id="m-tags" class="flex gap-2 flex-wrap"></div>
+      <div id="m-content" class="bg-slate-50/80 backdrop-blur p-4 rounded-xl text-sm leading-relaxed"></div>
+      <!-- Related Content -->
+      <div id="m-related" class="border-t border-slate-200/60 pt-6">
+        <h4 class="text-xs font-bold text-slate-400 mb-4 uppercase">Related Content</h4>
+        <div id="r-list" class="grid grid-cols-2 gap-3"></div>
+      </div>
+      <!-- Threads -->
+      <div class="border-t border-slate-200/60 pt-6">
         <h4 class="text-xs font-bold text-slate-400 mb-4 uppercase">Threads</h4>
         <div id="t-list" class="space-y-3 mb-4"></div>
         <div class="flex gap-2">
-          <input id="t-input" class="flex-1 bg-slate-100 border-none p-3 rounded-lg text-sm" placeholder="메모 추가...">
-          <button id="t-add" class="bg-indigo-600 text-white px-4 rounded-lg font-bold">Add</button>
+          <input id="t-input" class="flex-1 bg-slate-100/80 backdrop-blur border-none p-3 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300" placeholder="메모 추가...">
+          <button id="t-add" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 rounded-lg font-bold transition">Add</button>
         </div>
       </div>
     </div>

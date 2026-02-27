@@ -1,4 +1,3 @@
-// background.js 상단
 const apiKey = ""; // 빌드 시 주입됨
 const SUPABASE_URL = ""; // 빌드 시 주입됨
 const SUPABASE_KEY = ""; // 빌드 시 주입됨
@@ -16,7 +15,7 @@ chrome.runtime.onInstalled.addListener(() => {
 // Supabase 데이터 동기화 함수
 async function syncToSupabase(payload) {
   if (!SUPABASE_URL || !SUPABASE_KEY) return;
-  
+
   try {
     await fetch(`${SUPABASE_URL}/rest/v1/learning_data`, {
       method: "POST",
@@ -33,41 +32,90 @@ async function syncToSupabase(payload) {
   }
 }
 
-// 기존 메시지 리스너 수정
+async function askAI(prompt) {
+  if (!apiKey) {
+    console.warn("Gemini API key is not set. Skipping AI analysis.");
+    return { summary: 'AI 분석을 건너뛰었습니다.', category: 'Uncategorized', tags: [], board: 'Inbox' };
+  }
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-8b:generateContent?key=${apiKey}`;
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: "OBJECT",
+            properties: {
+              summary: { type: "STRING" },
+              category: { type: "STRING" },
+              tags: { type: "ARRAY", items: { type: "STRING" } },
+              board: { type: "STRING" }
+            }
+          }
+        }
+      })
+    });
+    if (!res.ok) {
+      throw new Error(`HTTP error! status: ${res.status}`);
+    }
+    const json = await res.json();
+    return JSON.parse(json.candidates[0].content.parts[0].text);
+  } catch (error) {
+    console.error("Error calling Gemini API:", error);
+    return { summary: 'AI 분석에 실패했습니다.', category: 'Uncategorized', tags: [], board: 'Inbox' };
+  }
+}
+
 chrome.runtime.onMessage.addListener((msg, sender, sendRes) => {
   if (msg.action === 'save') {
-    // 분석 프롬프트 생성
-    const p = `Analyze: ${msg.data.title}. Content: ${msg.data.text.slice(0, 500)}. 1-sentence Korean summary, 1 category, 3 tags.`;
-    
-    askAI(p).then(ai => {
-      chrome.storage.local.get(['installID', 'dumps'], (res) => {
-        const item = { 
-          ...msg.data, 
-          ...ai, 
-          id: Date.now(), 
-          threads: [], 
-          date: new Date().toLocaleDateString(), 
-          board: 'Inbox' 
+    chrome.storage.local.get({ dumps: [], boards: ['Inbox'], installID: null }, (store) => {
+      const boardList = store.boards.join(', ');
+      const content = msg.data.text ? msg.data.text.slice(0, 500) : msg.data.title;
+      const p = `Analyze: ${msg.data.title}. Content: ${content}. Provide: 1-sentence Korean summary, 1 category, 3 tags, and recommend ONE board from this list: [${boardList}]. If no board fits well, recommend "Inbox".`;
+
+      askAI(p).then(ai => {
+        // User-selected board (from popup) takes priority over AI recommendation
+        const userBoard = msg.data.requestedBoard;
+        const aiBoard = store.boards.includes(ai.board) ? ai.board : 'Inbox';
+        const finalBoard = userBoard && store.boards.includes(userBoard) ? userBoard : aiBoard;
+
+        const item = {
+          ...msg.data,
+          summary: ai.summary,
+          category: ai.category,
+          tags: ai.tags,
+          id: crypto.randomUUID(),
+          threads: [],
+          date: new Date().toLocaleDateString(),
+          board: finalBoard
         };
 
-        // 1. 로컬 저장 (사용자 대시보드용)
-        chrome.storage.local.set({ dumps: [item, ...(res.dumps || [])] }, () => {
-          
-          // 2. 서버 전송 (회사 내부 테스트 및 학습 데이터용)
-          syncToSupabase({
-            user_id: res.installID,
-            url: msg.data.url,
-            title: msg.data.title,
-            original_text: msg.data.text, // 나중에 학습할 때 가장 중요한 본문 데이터
-            ai_summary: ai.summary,
-            category: ai.category,
-            tags: ai.tags
-          });
+        // 1. 로컬 저장
+        chrome.storage.local.set({ dumps: [item, ...store.dumps] }, () => {
+          if (chrome.runtime.lastError) {
+            sendRes({ success: false });
+          } else {
+            // 2. Supabase 동기화
+            syncToSupabase({
+              user_id: store.installID,
+              url: msg.data.url,
+              title: msg.data.title,
+              original_text: msg.data.text,
+              ai_summary: ai.summary,
+              category: ai.category,
+              tags: ai.tags
+            });
 
-          sendRes({ success: true });
+            sendRes({ success: true, board: finalBoard });
+          }
         });
+      }).catch(() => {
+        sendRes({ success: false });
       });
     });
-    return true; 
+    return true;
   }
 });

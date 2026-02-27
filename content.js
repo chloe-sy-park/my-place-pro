@@ -1,7 +1,11 @@
+if (document.getElementById('mm-pin-btn')) throw new Error('JustDump already injected');
+
 let target = null;
 const btn = document.createElement('button');
 btn.id = 'mm-pin-btn';
-btn.innerHTML = '<span>Save to JustDump</span>';
+const btnLabel = document.createElement('span');
+btnLabel.textContent = 'Save to JustDump';
+btn.appendChild(btnLabel);
 document.body.appendChild(btn);
 
 document.addEventListener('mouseover', (e) => {
@@ -14,22 +18,29 @@ document.addEventListener('mouseover', (e) => {
     btn.style.top = `${rect.top + window.scrollY + 10}px`;
     btn.style.left = `${rect.left + window.scrollX + 10}px`;
     btn.style.display = 'flex';
-    btn.innerHTML = isArticle ? '<span>Save Article</span>' : '<span>Save to JustDump</span>';
+    btn.classList.remove('saved');
+    btn.style.background = '';
+    btnLabel.textContent = isArticle ? 'Save Article' : 'Save to JustDump';
   }
 });
 
 btn.onclick = () => {
-  const isArt = btn.innerText.includes('Article');
+  const isArt = btnLabel.textContent.includes('Article');
   const data = {
     title: document.title, url: window.location.href,
     type: isArt ? 'article' : 'media',
     mediaUrl: target.src || target.currentSrc || null,
     text: isArt ? document.body.innerText.slice(0, 1500) : ""
   };
-  btn.innerText = 'Saving...';
-  chrome.runtime.sendMessage({ action: 'save', data }, () => {
-    btn.innerText = 'Saved!';
-    btn.classList.add('saved');
-    setTimeout(() => btn.style.display = 'none', 1000);
+  btnLabel.textContent = 'Saving...';
+  chrome.runtime.sendMessage({ action: 'save', data }, (response) => {
+    if (chrome.runtime.lastError || !response || !response.success) {
+      btnLabel.textContent = 'Error!';
+      btn.style.background = '#ef4444';
+    } else {
+      btnLabel.textContent = 'Saved!';
+      btn.classList.add('saved');
+    }
+    setTimeout(() => { btn.style.display = 'none'; btn.style.background = ''; }, 1500);
   });
 };

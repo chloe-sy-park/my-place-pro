@@ -1,20 +1,39 @@
 <!DOCTYPE html>
-<html>
+<html lang="ko">
 <head>
   <meta charset="UTF-8">
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="w-80 p-4 bg-slate-50">
+<body class="w-80 p-4 bg-gradient-to-br from-slate-50 via-indigo-50/30 to-slate-100">
   <div class="flex justify-between items-center mb-4">
-    <h1 class="font-black text-indigo-600">JustDump</h1>
-    <button id="dash" class="text-xs font-bold text-slate-400 underline">Boards</button>
+    <h1 class="font-black text-indigo-600 text-lg">JustDump</h1>
+    <button id="go-dashboard" class="text-xs font-bold text-slate-400 hover:text-indigo-500 underline transition">Boards</button>
   </div>
-  <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
-    <p class="text-xs text-slate-500 mb-2">웹페이지나 이미지 위에 마우스를 올리면<br><b>Pin 버튼</b>이 나타납니다.</p>
-    <p class="text-[10px] text-indigo-400">Tip: 본문은 Alt 키를 누르고 마우스를 올리세요.</p>
+
+  <!-- YouTube Thumbnail Preview -->
+  <div id="video-preview" class="hidden mb-3">
+    <img id="thumb-img" class="w-full h-36 object-cover rounded-xl border border-white/40">
   </div>
-  <script>
-    document.getElementById('dash').onclick = () => chrome.runtime.openOptionsPage();
-  </script>
+
+  <!-- Page Info -->
+  <div id="page-info" class="bg-white/70 backdrop-blur p-3 rounded-xl border border-white/40 mb-3">
+    <p id="page-title" class="text-sm font-bold text-slate-700 line-clamp-2"></p>
+    <p id="page-url" class="text-[10px] text-slate-400 mt-1 truncate"></p>
+  </div>
+
+  <!-- Save Form -->
+  <div class="space-y-2">
+    <select id="board-select" class="w-full bg-white/70 backdrop-blur border border-white/40 rounded-lg px-3 py-2 text-sm text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-300"></select>
+    <input id="note" class="w-full bg-white/70 backdrop-blur border border-white/40 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300" placeholder="메모 추가 (선택)...">
+    <button id="save-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-lg text-sm transition">Save This Page</button>
+  </div>
+
+  <!-- Status -->
+  <p id="status" class="hidden text-center text-xs text-indigo-500 font-bold mt-2"></p>
+
+  <!-- Tip -->
+  <p class="text-[10px] text-slate-400 mt-3 text-center">Tip: 웹페이지에서 이미지 위에 마우스를 올리거나, Alt + 텍스트 hover로 저장하세요.</p>
+
+  <script src="popup.js"></script>
 </body>
 </html>
