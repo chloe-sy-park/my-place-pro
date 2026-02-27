@@ -72,7 +72,33 @@ document.addEventListener('DOMContentLoaded', async () => {
     try {
       const [{ result: pageText }] = await chrome.scripting.executeScript({
         target: { tabId: tab.id },
-        func: () => document.body.innerText.slice(0, 1500)
+        func: () => {
+          const url = window.location.href;
+          if (/youtube\.com\/(watch|shorts)/.test(url)) {
+            const parts = [];
+            const ch = document.querySelector('#channel-name a, ytd-channel-name a');
+            if (ch) parts.push('Channel: ' + ch.textContent.trim());
+            const desc = document.querySelector('#description-text, ytd-text-inline-expander, #description');
+            if (desc) parts.push(desc.innerText.trim().slice(0, 1000));
+            if (parts.length) return parts.join('\n');
+          }
+          if (/instagram\.com\/(p|reel|reels)\//.test(url)) {
+            const parts = [];
+            const article = document.querySelector('article');
+            if (article) {
+              const user = article.querySelector('header a');
+              if (user) parts.push('@' + user.textContent.trim());
+              const caption = article.querySelector('h1') || article.querySelector('div > span[dir="auto"]');
+              if (caption) parts.push(caption.textContent.trim().slice(0, 1000));
+            }
+            if (parts.length) return parts.join('\n');
+          }
+          if (/twitter\.com|x\.com/.test(url)) {
+            const tweet = document.querySelector('[data-testid="tweetText"]');
+            if (tweet) return tweet.textContent.trim().slice(0, 2000);
+          }
+          return document.body.innerText.slice(0, 1500);
+        }
       });
 
       const data = {
