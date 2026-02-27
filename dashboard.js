@@ -241,7 +241,7 @@ document.getElementById('t-add').addEventListener('click', () => {
 
 // --- Delete Item ---
 document.getElementById('delete-item').addEventListener('click', () => {
-  if (confirm('이 항목을 삭제하시겠습니까?')) {
+  if (confirm('Delete this item?')) {
     dumps = dumps.filter(m => m.id !== activeId);
     chrome.storage.local.set({ dumps }, () => {
       document.getElementById('modal').classList.add('hidden');
@@ -252,7 +252,7 @@ document.getElementById('delete-item').addEventListener('click', () => {
 
 // --- Add Board ---
 document.getElementById('add-b').addEventListener('click', () => {
-  const name = prompt('새 보드 이름:');
+  const name = prompt('New board name:');
   if (name && name.trim() && !boards.includes(name.trim())) {
     boards.push(name.trim());
     chrome.storage.local.set({ boards }, load);
@@ -262,6 +262,11 @@ document.getElementById('add-b').addEventListener('click', () => {
 // --- Close Modal ---
 document.getElementById('close').addEventListener('click', () => {
   document.getElementById('modal').classList.add('hidden');
+});
+
+// --- Settings ---
+document.getElementById('go-settings').addEventListener('click', () => {
+  chrome.tabs.create({ url: chrome.runtime.getURL('settings.html') });
 });
 
 // --- Init ---

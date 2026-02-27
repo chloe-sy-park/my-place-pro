@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="bg-gradient-to-br from-slate-50 via-indigo-50/30 to-slate-100 min-h-screen flex items-center justify-center font-sans p-8">
+  <div class="w-full max-w-lg bg-white/70 backdrop-blur-xl border border-white/40 rounded-3xl shadow-xl p-10 space-y-8">
+    <div>
+      <h1 class="text-2xl font-black text-indigo-600 italic">JustDump</h1>
+      <p class="text-sm text-slate-400 mt-1">Settings</p>
+    </div>
+
+    <!-- Gemini API Key -->
+    <div class="space-y-2">
+      <label class="text-sm font-bold text-slate-700">Gemini API Key</label>
+      <p class="text-xs text-slate-400">Get your free API key from <a href="https://aistudio.google.com/" target="_blank" class="text-indigo-500 underline">Google AI Studio</a>.</p>
+      <div class="flex gap-2">
+        <input id="api-key" type="password" class="flex-1 bg-white/80 backdrop-blur border border-white/40 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 font-mono" placeholder="Enter your API key...">
+        <button id="toggle-key" class="text-xs text-slate-400 hover:text-indigo-500 font-bold px-3 transition">Show</button>
+      </div>
+    </div>
+
+    <!-- Supabase Opt-in -->
+    <div class="space-y-2">
+      <label class="text-sm font-bold text-slate-700">Data Sync</label>
+      <div class="flex items-start gap-3 bg-white/60 backdrop-blur border border-white/40 rounded-xl p-4">
+        <input id="supabase-optin" type="checkbox" class="mt-1 accent-indigo-600">
+        <div>
+          <p class="text-sm text-slate-600 font-bold">Help improve JustDump</p>
+          <p class="text-xs text-slate-400 mt-1">Anonymously share content categories and tags to help us improve AI recommendations. No personal data, URLs, or content is sent.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Save Button -->
+    <button id="save-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl text-sm transition">Save Settings</button>
+    <p id="status" class="hidden text-center text-xs text-emerald-500 font-bold"></p>
+
+    <!-- Back to Dashboard -->
+    <div class="text-center">
+      <button id="go-dashboard" class="text-xs text-slate-400 hover:text-indigo-500 underline transition">Back to Dashboard</button>
+    </div>
+  </div>
+
+  <script src="settings.js"></script>
+</body>
+</html>

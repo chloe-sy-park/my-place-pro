@@ -1,8 +1,8 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
-  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="styles.css">
   <style>.active { background: #6366f1; color: white; }</style>
 </head>
 <body class="bg-gradient-to-br from-slate-50 via-indigo-50/30 to-slate-100 flex h-screen overflow-hidden font-sans">
@@ -10,6 +10,7 @@
     <h1 class="text-2xl font-black text-indigo-600 mb-8 italic">JustDump</h1>
     <div id="boards" class="flex-1 space-y-1"></div>
     <button id="add-b" class="text-xs font-bold text-indigo-500 p-2 hover:bg-indigo-50 rounded-lg transition">+ New Board</button>
+    <button id="go-settings" class="text-xs text-slate-400 hover:text-indigo-500 p-2 mt-1 transition">Settings</button>
   </aside>
   <main class="flex-1 flex flex-col">
     <header class="h-20 px-10 flex items-center justify-between border-b border-white/30 bg-white/40 backdrop-blur-xl">
@@ -46,7 +47,7 @@
         <h4 class="text-xs font-bold text-slate-400 mb-4 uppercase">Threads</h4>
         <div id="t-list" class="space-y-3 mb-4"></div>
         <div class="flex gap-2">
-          <input id="t-input" class="flex-1 bg-slate-100/80 backdrop-blur border-none p-3 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300" placeholder="메모 추가...">
+          <input id="t-input" class="flex-1 bg-slate-100/80 backdrop-blur border-none p-3 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300" placeholder="Add a note...">
           <button id="t-add" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 rounded-lg font-bold transition">Add</button>
         </div>
       </div>

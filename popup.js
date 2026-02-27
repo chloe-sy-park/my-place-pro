@@ -13,7 +13,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Guard: no active tab
   if (!tab) {
-    status.textContent = '활성 탭을 찾을 수 없습니다.';
+    status.textContent = 'No active tab found.';
     status.classList.remove('hidden');
     saveBtn.disabled = true;
     return;
@@ -29,7 +29,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Disable save on restricted pages
   if (isRestricted) {
     saveBtn.disabled = true;
-    status.textContent = '이 페이지는 저장할 수 없습니다.';
+    status.textContent = 'This page cannot be saved.';
     status.classList.remove('hidden');
   }
 
@@ -90,10 +90,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (chrome.runtime.lastError || !response || !response.success) {
           saveBtn.disabled = false;
           saveBtn.textContent = 'Save This Page';
-          status.textContent = '저장 실패. 다시 시도해 주세요.';
+          status.textContent = 'Save failed. Please try again.';
           status.classList.remove('hidden');
         } else {
-          status.textContent = '저장 완료!';
+          status.textContent = 'Saved!';
           status.classList.remove('hidden');
           saveBtn.textContent = 'Saved!';
           saveBtn.classList.add('bg-emerald-500');
@@ -104,8 +104,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       saveBtn.disabled = false;
       saveBtn.textContent = 'Save This Page';
       status.textContent = isRestricted
-        ? '이 페이지는 저장할 수 없습니다.'
-        : '오류 발생. 다시 시도해 주세요.';
+        ? 'This page cannot be saved.'
+        : 'An error occurred. Please try again.';
       status.classList.remove('hidden');
     }
   });

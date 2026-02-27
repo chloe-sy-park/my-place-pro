@@ -11,19 +11,27 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Replace API Keys and Supabase Info
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+
+    - name: Install dependencies and build CSS
+      run: |
+        npm ci
+        npm run build:css
+
+    - name: Inject Supabase credentials
       env:
-        GEMINI_KEY: ${{ secrets.GEMINI_API_KEY }}
         SUPABASE_URL_VAL: ${{ secrets.SUPABASE_URL }}
         SUPABASE_KEY_VAL: ${{ secrets.SUPABASE_ANON_KEY }}
       run: |
-        sed -i "s|const apiKey = \"\";|const apiKey = \"${GEMINI_KEY}\";|g" background.js
         sed -i "s|const SUPABASE_URL = \"\";|const SUPABASE_URL = \"${SUPABASE_URL_VAL}\";|g" background.js
         sed -i "s|const SUPABASE_KEY = \"\";|const SUPABASE_KEY = \"${SUPABASE_KEY_VAL}\";|g" background.js
 
     - name: Package Extension
       run: |
-        zip extension.zip manifest.json background.js content.js content.css popup.html popup.js dashboard.html dashboard.js INSTRUCTIONS.md
+        zip -r extension.zip manifest.json background.js content.js content.css popup.html popup.js dashboard.html dashboard.js settings.html settings.js styles.css icons/
 
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
