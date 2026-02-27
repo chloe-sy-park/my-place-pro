@@ -28,16 +28,16 @@ function extractContext(el) {
   const container = el.closest(
     'ytd-rich-item-renderer, ytd-video-renderer, ytd-compact-video-renderer, ' +
     'ytd-grid-video-renderer, ytd-reel-item-renderer, ytd-playlist-video-renderer, ' +
-    'article, .card, [data-testid]'
+    'article, .card'
   );
 
   if (container) {
-    // Title
+    // Title from YouTube elements
     const titleEl = container.querySelector(
-      '#video-title, #video-title-link, h3 a, h3, h2 a, h2, [aria-label]'
+      '#video-title, #video-title-link, h3 a, h3, h2 a, h2'
     );
     if (titleEl) {
-      const t = (titleEl.textContent || titleEl.getAttribute('aria-label') || '').trim();
+      const t = titleEl.textContent.trim();
       if (t.length > 2) title = t;
     }
 
@@ -66,24 +66,42 @@ function extractContext(el) {
     if (ch) text = `Channel: ${ch.textContent.trim()}\n${text}`;
   }
 
-  // Instagram: extract caption
+  // Instagram: extract username + caption
   if (/instagram\.com/.test(window.location.href)) {
     const article = el.closest('article') || document.querySelector('article');
     if (article) {
       const user = article.querySelector('header a');
-      const caption = article.querySelector('h1') || article.querySelector('div > span[dir="auto"]');
-      const parts = [];
-      if (user) parts.push(`@${user.textContent.trim()}`);
-      if (caption) parts.push(caption.textContent.trim().slice(0, 800));
-      if (parts.length) text = parts.join('\n');
+      if (user) {
+        const username = user.textContent.trim();
+        title = `@${username}`;
+        text = `@${username}`;
+      }
+      const spans = article.querySelectorAll('span[dir="auto"]');
+      for (const span of spans) {
+        const t = span.textContent.trim();
+        if (t.length > 20) { text += '\n' + t.slice(0, 800); break; }
+      }
+      const caption = article.querySelector('h1');
+      if (caption) text += '\n' + caption.textContent.trim().slice(0, 800);
     }
   }
 
-  // Twitter/X: extract tweet text
+  // Twitter/X: extract username + tweet text
   if (/twitter\.com|x\.com/.test(window.location.href)) {
-    const tweet = el.closest('article')?.querySelector('[data-testid="tweetText"]')
-      || document.querySelector('[data-testid="tweetText"]');
-    if (tweet) text = tweet.textContent.trim().slice(0, 1000);
+    const article = el.closest('article') || el.closest('[data-testid="tweet"]');
+    if (article) {
+      const userLink = article.querySelector('a[role="link"][href*="/"]');
+      if (userLink) {
+        const handle = userLink.getAttribute('href');
+        if (handle && handle.startsWith('/')) title = `${handle.slice(1)} on X`;
+      }
+      const tweet = article.querySelector('[data-testid="tweetText"]');
+      if (tweet) {
+        const tweetText = tweet.textContent.trim().slice(0, 1000);
+        text = tweetText;
+        if (!title.includes(' on X')) title = tweetText.slice(0, 80);
+      }
+    }
   }
 
   const videoId = getYouTubeId(url);
@@ -95,13 +113,18 @@ document.addEventListener('mouseover', (e) => {
   let isMedia = (el.tagName === 'IMG' || el.tagName === 'VIDEO') && el.offsetWidth > 100;
   const isArticle = (el.tagName === 'P' || el.tagName === 'H1') && e.altKey;
 
-  // Instagram/Twitter/etc: images are behind overlay divs — find the image in the container
+  // Instagram/Twitter/etc: images are behind overlay divs — find the largest image in the container
   if (!isMedia && !isArticle) {
-    const container = el.closest('article, [data-testid], [role="link"], [role="button"]');
+    const container = el.closest('article, [role="link"]');
     if (container) {
-      const img = container.querySelector('img[src]');
-      if (img && img.offsetWidth > 100) {
-        el = img;
+      let bestImg = null;
+      let maxArea = 0;
+      container.querySelectorAll('img[src]').forEach(i => {
+        const area = i.offsetWidth * i.offsetHeight;
+        if (area > maxArea) { maxArea = area; bestImg = i; }
+      });
+      if (bestImg && bestImg.offsetWidth > 100) {
+        el = bestImg;
         isMedia = true;
       }
     }
