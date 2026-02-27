@@ -154,33 +154,20 @@ function renderItems() {
   });
 }
 
+function getSourceLabel(item) {
+  if (item.videoId || getYouTubeId(item.url)) return 'YouTube';
+  if (/instagram\.com/.test(item.url || '')) return 'Instagram';
+  if (/twitter\.com|x\.com/.test(item.url || '')) return 'X';
+  return 'Web';
+}
+
 // --- Detail View ---
 function openDetail(id) {
   activeId = id;
   const m = dumps.find(x => x.id === id);
   if (!m) return;
 
-  document.getElementById('d-cat').textContent = m.category || '';
-  document.getElementById('d-title').textContent = m.title;
-
-  const urlEl = document.getElementById('d-url');
-  urlEl.href = m.url || '#';
-  urlEl.textContent = m.url || '';
-  urlEl.style.display = m.url ? '' : 'none';
-
-  document.getElementById('d-sum').textContent = m.summary || '';
-
-  // Tags
-  const tagsEl = document.getElementById('d-tags');
-  tagsEl.textContent = '';
-  (m.tags || []).forEach(tag => {
-    const span = document.createElement('span');
-    span.className = 'text-[9px] bg-indigo-50 text-indigo-500 px-1.5 py-0.5 rounded-full font-bold';
-    span.textContent = `#${tag}`;
-    tagsEl.appendChild(span);
-  });
-
-  // Content
+  // Content preview (top)
   const contentEl = document.getElementById('d-content');
   contentEl.textContent = '';
   const ytId = m.videoId || getYouTubeId(m.url);
@@ -189,7 +176,7 @@ function openDetail(id) {
     wrapper.href = `https://www.youtube.com/watch?v=${ytId}`;
     wrapper.target = '_blank';
     wrapper.rel = 'noopener';
-    wrapper.className = 'block relative w-full aspect-video rounded-lg overflow-hidden group cursor-pointer';
+    wrapper.className = 'block relative w-full aspect-video rounded-xl overflow-hidden group';
     const thumb = document.createElement('img');
     thumb.src = `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`;
     thumb.className = 'w-full h-full object-cover';
@@ -216,20 +203,51 @@ function openDetail(id) {
   } else if (m.mediaUrl && !/\.(mp4|webm|ogg)$/i.test(m.mediaUrl)) {
     const img = document.createElement('img');
     img.src = m.mediaUrl;
-    img.className = 'w-full rounded-lg';
+    img.className = 'w-full rounded-xl';
     contentEl.appendChild(img);
   } else if (m.mediaUrl) {
     const video = document.createElement('video');
     video.src = m.mediaUrl;
-    video.className = 'w-full rounded-lg';
+    video.className = 'w-full rounded-xl';
     video.controls = true;
     contentEl.appendChild(video);
-  } else if (m.text) {
-    const div = document.createElement('div');
-    div.className = 'whitespace-pre-wrap';
-    div.textContent = m.text.slice(0, 500) + (m.text.length > 500 ? '...' : '');
-    contentEl.appendChild(div);
   }
+
+  // Metadata
+  document.getElementById('d-title').textContent = m.title;
+  document.getElementById('d-date').textContent = m.date || '';
+  document.getElementById('d-source').textContent = getSourceLabel(m);
+
+  const urlEl = document.getElementById('d-url');
+  urlEl.href = m.url || '#';
+  urlEl.textContent = m.url || '';
+  urlEl.style.display = m.url ? '' : 'none';
+
+  // Summary
+  const sumWrap = document.getElementById('d-sum-wrap');
+  const sumEl = document.getElementById('d-sum');
+  if (m.summary && !m.summary.includes('was skipped') && !m.summary.includes('failed')) {
+    sumEl.textContent = m.summary;
+    sumWrap.style.display = '';
+  } else {
+    sumWrap.style.display = 'none';
+  }
+
+  // Tags
+  const tagsEl = document.getElementById('d-tags');
+  tagsEl.textContent = '';
+  if (m.category && m.category !== 'Uncategorized') {
+    const catSpan = document.createElement('span');
+    catSpan.className = 'text-[9px] bg-indigo-50 text-indigo-500 px-2 py-0.5 rounded-full font-bold';
+    catSpan.textContent = m.category;
+    tagsEl.appendChild(catSpan);
+  }
+  (m.tags || []).forEach(tag => {
+    const span = document.createElement('span');
+    span.className = 'text-[9px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full font-medium';
+    span.textContent = tag;
+    tagsEl.appendChild(span);
+  });
 
   // Board selector
   const boardSelect = document.getElementById('d-board');
@@ -254,18 +272,15 @@ function openDetail(id) {
   threadList.textContent = '';
   (m.threads || []).forEach(t => {
     const div = document.createElement('div');
-    div.className = 'bg-white/60 backdrop-blur p-2.5 rounded-lg border border-white/30';
-
+    div.className = 'bg-white/60 p-2 rounded-lg';
     const text = document.createElement('span');
     text.className = 'text-xs';
     text.textContent = t.text;
     div.appendChild(text);
-
     const date = document.createElement('span');
     date.className = 'block text-[8px] text-slate-300 mt-0.5';
     date.textContent = t.date;
     div.appendChild(date);
-
     threadList.appendChild(div);
   });
 

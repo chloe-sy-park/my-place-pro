@@ -1,99 +1,200 @@
 let dumps = [], boards = ['Inbox'], currentB = 'Inbox', activeId = null;
+let searchQuery = '', activeType = 'all';
 
 function getYouTubeId(url) {
   const match = (url || '').match(/(?:youtu\.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=|shorts\/)([^#&?]*)/);
   return (match && match[1].length === 11) ? match[1] : null;
 }
 
+const isVideo = (url) => /\.(mp4|webm|ogg)$/i.test(url);
+
+function getContentType(item) {
+  if (item.videoId || getYouTubeId(item.url)) return 'video';
+  if (/instagram\.com/.test(item.url || '')) return 'instagram';
+  if (/twitter\.com|x\.com/.test(item.url || '')) return 'xpost';
+  if (item.mediaUrl && !isVideo(item.mediaUrl)) return 'image';
+  return 'article';
+}
+
+function getSourceLabel(item) {
+  const type = getContentType(item);
+  const labels = { video: 'YouTube', instagram: 'Instagram', xpost: 'X', image: 'Image', article: 'Web' };
+  return labels[type] || 'Web';
+}
+
+const TYPE_FILTERS = [
+  { key: 'all', label: 'All' },
+  { key: 'video', label: 'Videos' },
+  { key: 'article', label: 'Articles' },
+  { key: 'image', label: 'Images' },
+  { key: 'xpost', label: 'X Posts' },
+  { key: 'instagram', label: 'Instagram' },
+];
+
 // --- Data Loading ---
 const load = () => {
   chrome.storage.local.get({ dumps: [], boards: ['Inbox'] }, (res) => {
     dumps = res.dumps;
     boards = res.boards;
-    renderBoards();
+    renderBoardTabs();
+    renderTypeFilters();
     render();
   });
 };
 
-// --- Board Sidebar ---
-const renderBoards = () => {
-  const container = document.getElementById('boards');
+// --- Board Tabs ---
+const renderBoardTabs = () => {
+  const container = document.getElementById('board-tabs');
   container.textContent = '';
   boards.forEach(b => {
     const btn = document.createElement('button');
-    btn.className = `w-full text-left px-4 py-2 rounded-lg text-sm font-bold transition ${currentB === b ? 'active' : 'hover:bg-slate-100'}`;
+    btn.className = `shrink-0 px-4 py-1.5 rounded-full text-xs font-bold transition ${currentB === b ? 'board-active' : 'bg-white/60 text-slate-500 hover:bg-slate-100'}`;
     btn.textContent = b;
     btn.addEventListener('click', () => {
       currentB = b;
-      document.getElementById('b-title').textContent = b;
-      renderBoards();
+      renderBoardTabs();
       render();
     });
     container.appendChild(btn);
   });
 };
 
+// --- Type Filters ---
+const renderTypeFilters = () => {
+  const container = document.getElementById('type-filters');
+  container.textContent = '';
+  TYPE_FILTERS.forEach(f => {
+    const btn = document.createElement('button');
+    btn.className = `shrink-0 px-3 py-1 rounded-full text-[11px] font-bold border transition ${activeType === f.key ? 'filter-active' : 'bg-white/40 text-slate-400 border-white/40 hover:bg-white/60'}`;
+    btn.textContent = f.label;
+    btn.addEventListener('click', () => {
+      activeType = f.key;
+      renderTypeFilters();
+      render();
+    });
+    container.appendChild(btn);
+  });
+};
+
+// --- Filtering ---
+function getFiltered() {
+  let result = dumps.filter(m => m.board === currentB || (!m.board && currentB === 'Inbox'));
+
+  if (activeType !== 'all') {
+    result = result.filter(m => getContentType(m) === activeType);
+  }
+
+  if (searchQuery) {
+    const q = searchQuery.toLowerCase();
+    result = result.filter(m =>
+      (m.title || '').toLowerCase().includes(q) ||
+      (m.summary || '').toLowerCase().includes(q) ||
+      (m.category || '').toLowerCase().includes(q) ||
+      (m.url || '').toLowerCase().includes(q) ||
+      (m.text || '').toLowerCase().includes(q) ||
+      (m.tags || []).some(t => t.toLowerCase().includes(q))
+    );
+  }
+
+  return result;
+}
+
 // --- Grid Rendering ---
 const render = () => {
-  const filtered = dumps.filter(m => m.board === currentB || (!m.board && currentB === 'Inbox'));
+  const filtered = getFiltered();
   const grid = document.getElementById('grid');
+  const empty = document.getElementById('empty-state');
   grid.textContent = '';
 
   document.getElementById('item-count').textContent = `${filtered.length} items`;
 
+  if (filtered.length === 0) {
+    grid.classList.add('hidden');
+    empty.classList.remove('hidden');
+    return;
+  }
+  grid.classList.remove('hidden');
+  empty.classList.add('hidden');
+
   filtered.forEach(m => {
     const card = document.createElement('div');
-    card.className = 'bg-white/60 backdrop-blur p-6 rounded-3xl border border-white/40 shadow-sm hover:shadow-xl hover:bg-white/80 cursor-pointer transition';
+    card.className = 'bg-white/70 backdrop-blur p-0 rounded-2xl border border-white/50 shadow-sm hover:shadow-lg hover:bg-white cursor-pointer transition overflow-hidden';
     card.addEventListener('click', () => openM(m.id));
 
     const ytId = m.videoId || getYouTubeId(m.url);
     const thumbUrl = ytId ? `https://img.youtube.com/vi/${ytId}/mqdefault.jpg` : m.mediaUrl;
+
+    // Thumbnail
     if (thumbUrl && !isVideo(thumbUrl)) {
+      const imgWrap = document.createElement('div');
+      imgWrap.className = 'relative';
       const img = document.createElement('img');
-      img.id = `thumb-${m.id}`;
-      img.className = 'w-full h-32 object-cover rounded-lg mb-4';
       img.src = thumbUrl;
-      img.onerror = () => img.remove();
-      card.appendChild(img);
+      img.className = 'w-full object-cover';
+      img.onerror = () => imgWrap.remove();
+      imgWrap.appendChild(img);
+
+      // Play overlay for videos
+      if (ytId) {
+        const overlay = document.createElement('div');
+        overlay.className = 'absolute inset-0 flex items-center justify-center bg-black/10';
+        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.setAttribute('width', '40');
+        svg.setAttribute('height', '40');
+        svg.setAttribute('viewBox', '0 0 64 64');
+        const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        circle.setAttribute('cx', '32');
+        circle.setAttribute('cy', '32');
+        circle.setAttribute('r', '32');
+        circle.setAttribute('fill', 'rgba(0,0,0,0.5)');
+        svg.appendChild(circle);
+        const poly = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+        poly.setAttribute('points', '26,20 26,44 46,32');
+        poly.setAttribute('fill', 'white');
+        svg.appendChild(poly);
+        overlay.appendChild(svg);
+        imgWrap.appendChild(overlay);
+      }
+
+      card.appendChild(imgWrap);
     }
 
-    const badge = document.createElement('span');
-    badge.className = 'text-[9px] font-bold bg-slate-100/80 px-2 py-0.5 rounded text-slate-400 uppercase';
-    badge.textContent = m.category || '';
-    card.appendChild(badge);
+    // Card body
+    const body = document.createElement('div');
+    body.className = 'p-4';
 
+    // Source badge
+    const source = document.createElement('span');
+    source.className = 'text-[9px] font-bold text-slate-400 uppercase';
+    source.textContent = getSourceLabel(m);
+    body.appendChild(source);
+
+    // Title
     const title = document.createElement('h3');
-    title.className = 'font-bold mt-2 line-clamp-2';
+    title.className = 'text-sm font-bold mt-1 line-clamp-2 leading-snug';
     title.textContent = m.title;
-    card.appendChild(title);
+    body.appendChild(title);
 
-    const summary = document.createElement('p');
-    summary.className = 'text-xs text-slate-500 mt-2 italic line-clamp-2';
-    summary.textContent = m.summary ? `"${m.summary}"` : '';
-    card.appendChild(summary);
+    // Category tag
+    if (m.category && m.category !== 'Uncategorized') {
+      const cat = document.createElement('span');
+      cat.className = 'inline-block text-[8px] font-bold bg-indigo-50 text-indigo-400 px-1.5 py-0.5 rounded mt-2';
+      cat.textContent = m.category;
+      body.appendChild(cat);
+    }
 
+    // Summary (for articles without thumbnails)
+    if (!thumbUrl && m.summary && !m.summary.includes('was skipped') && !m.summary.includes('failed')) {
+      const sum = document.createElement('p');
+      sum.className = 'text-[11px] text-slate-400 mt-1.5 italic line-clamp-3';
+      sum.textContent = m.summary;
+      body.appendChild(sum);
+    }
+
+    card.appendChild(body);
     grid.appendChild(card);
   });
 };
-
-const generateVideoThumbnail = (url) => {
-  return new Promise((resolve, reject) => {
-    const video = document.createElement('video');
-    video.src = url;
-    video.crossOrigin = "anonymous";
-    video.onerror = () => reject(new Error('Video load failed'));
-    video.onloadeddata = () => { video.currentTime = 1; };
-    video.onseeked = () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
-      resolve(canvas.toDataURL());
-    };
-  });
-};
-
-const isVideo = (url) => /\.(mp4|webm|ogg)$/i.test(url);
 
 // --- Related Content ---
 const getRelated = (current, all, maxResults = 4) => {
@@ -119,36 +220,57 @@ const openM = (id) => {
   const m = dumps.find(x => x.id === id);
   if (!m) return;
 
-  document.getElementById('m-cat').textContent = m.category || '';
+  // Title
   document.getElementById('m-title').textContent = m.title;
 
+  // Date & Source
+  document.getElementById('m-date').textContent = m.date || '';
+  document.getElementById('m-source').textContent = getSourceLabel(m);
+
+  // URL
   const urlEl = document.getElementById('m-url');
   urlEl.href = m.url || '#';
   urlEl.textContent = m.url || '';
   urlEl.style.display = m.url ? '' : 'none';
 
-  document.getElementById('m-sum').textContent = m.summary || '';
+  // Summary
+  const sumWrap = document.getElementById('m-sum-wrap');
+  const sumEl = document.getElementById('m-sum');
+  if (m.summary && !m.summary.includes('was skipped') && !m.summary.includes('failed')) {
+    sumEl.textContent = m.summary;
+    sumWrap.style.display = '';
+  } else {
+    sumWrap.style.display = 'none';
+  }
 
   // Tags
   const tagsContainer = document.getElementById('m-tags');
   tagsContainer.textContent = '';
   (m.tags || []).forEach(tag => {
     const span = document.createElement('span');
-    span.className = 'text-[10px] bg-indigo-50 text-indigo-500 px-2 py-0.5 rounded-full font-bold';
-    span.textContent = `#${tag}`;
+    span.className = 'text-[11px] bg-slate-100 text-slate-600 px-2.5 py-1 rounded-full font-medium';
+    span.textContent = tag;
     tagsContainer.appendChild(span);
   });
+  if (m.category && m.category !== 'Uncategorized') {
+    const catSpan = document.createElement('span');
+    catSpan.className = 'text-[11px] bg-indigo-50 text-indigo-500 px-2.5 py-1 rounded-full font-bold';
+    catSpan.textContent = m.category;
+    tagsContainer.insertBefore(catSpan, tagsContainer.firstChild);
+  }
 
-  // Content
+  // Content (left panel)
   const contentEl = document.getElementById('m-content');
   contentEl.textContent = '';
   const ytId = m.videoId || getYouTubeId(m.url);
+
   if (ytId) {
+    // YouTube: clickable thumbnail
     const wrapper = document.createElement('a');
     wrapper.href = `https://www.youtube.com/watch?v=${ytId}`;
     wrapper.target = '_blank';
     wrapper.rel = 'noopener';
-    wrapper.className = 'block relative w-full aspect-video rounded-lg overflow-hidden group cursor-pointer';
+    wrapper.className = 'block relative w-full aspect-video rounded-xl overflow-hidden group';
     const thumb = document.createElement('img');
     thumb.src = `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`;
     thumb.className = 'w-full h-full object-cover';
@@ -156,8 +278,8 @@ const openM = (id) => {
     const playBtn = document.createElement('div');
     playBtn.className = 'absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/40 transition';
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    svg.setAttribute('width', '64');
-    svg.setAttribute('height', '64');
+    svg.setAttribute('width', '72');
+    svg.setAttribute('height', '72');
     svg.setAttribute('viewBox', '0 0 64 64');
     const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
     circle.setAttribute('cx', '32');
@@ -172,24 +294,41 @@ const openM = (id) => {
     playBtn.appendChild(svg);
     wrapper.appendChild(playBtn);
     contentEl.appendChild(wrapper);
-  } else if (m.mediaUrl) {
-    if (isVideo(m.mediaUrl)) {
-      const video = document.createElement('video');
-      video.src = m.mediaUrl;
-      video.className = 'w-full rounded-lg';
-      video.controls = true;
-      contentEl.appendChild(video);
-    } else {
-      const img = document.createElement('img');
-      img.src = m.mediaUrl;
-      img.className = 'w-full rounded-lg';
-      contentEl.appendChild(img);
+
+    // Description text below
+    if (m.text) {
+      const desc = document.createElement('div');
+      desc.className = 'mt-4 text-sm text-slate-600 whitespace-pre-wrap leading-relaxed';
+      desc.textContent = m.text.slice(0, 1000);
+      contentEl.appendChild(desc);
     }
+  } else if (m.mediaUrl && !isVideo(m.mediaUrl)) {
+    const img = document.createElement('img');
+    img.src = m.mediaUrl;
+    img.className = 'w-full rounded-xl';
+    contentEl.appendChild(img);
+  } else if (m.mediaUrl && isVideo(m.mediaUrl)) {
+    const video = document.createElement('video');
+    video.src = m.mediaUrl;
+    video.className = 'w-full rounded-xl';
+    video.controls = true;
+    contentEl.appendChild(video);
   } else if (m.text) {
     const div = document.createElement('div');
-    div.className = 'whitespace-pre-wrap';
-    div.textContent = m.text.slice(0, 500) + (m.text.length > 500 ? '...' : '');
+    div.className = 'text-sm text-slate-700 whitespace-pre-wrap leading-relaxed';
+    div.textContent = m.text;
     contentEl.appendChild(div);
+  }
+
+  // Visit link button
+  if (m.url) {
+    const visitBtn = document.createElement('a');
+    visitBtn.href = m.url;
+    visitBtn.target = '_blank';
+    visitBtn.rel = 'noopener';
+    visitBtn.className = 'inline-flex items-center gap-1.5 mt-4 text-xs font-bold text-indigo-500 hover:text-indigo-700 transition';
+    visitBtn.textContent = 'Visit original page \u2192';
+    contentEl.appendChild(visitBtn);
   }
 
   // Board selector
@@ -219,27 +358,36 @@ const openM = (id) => {
   const related = getRelated(m, dumps);
   const rList = document.getElementById('r-list');
   rList.textContent = '';
+  const relatedSection = document.getElementById('m-related');
   if (related.length > 0) {
-    document.getElementById('m-related').style.display = '';
+    relatedSection.style.display = '';
     related.forEach(r => {
       const card = document.createElement('div');
-      card.className = 'bg-slate-50/80 p-3 rounded-xl cursor-pointer hover:bg-indigo-50 transition';
+      card.className = 'bg-slate-50 p-2.5 rounded-xl cursor-pointer hover:bg-indigo-50 transition flex items-center gap-2.5';
       card.addEventListener('click', () => openM(r.id));
 
-      const cat = document.createElement('span');
-      cat.className = 'text-[9px] font-bold text-indigo-400 uppercase';
-      cat.textContent = r.category || '';
-      card.appendChild(cat);
+      const rThumb = r.videoId || getYouTubeId(r.url);
+      const rThumbUrl = rThumb ? `https://img.youtube.com/vi/${rThumb}/default.jpg` : r.mediaUrl;
+      if (rThumbUrl && !isVideo(rThumbUrl)) {
+        const img = document.createElement('img');
+        img.src = rThumbUrl;
+        img.className = 'w-10 h-10 rounded-lg object-cover shrink-0';
+        img.onerror = () => img.remove();
+        card.appendChild(img);
+      }
 
-      const title = document.createElement('h5');
-      title.className = 'text-xs font-bold mt-1 line-clamp-2';
-      title.textContent = r.title;
-      card.appendChild(title);
+      const info = document.createElement('div');
+      info.className = 'min-w-0';
+      const rTitle = document.createElement('p');
+      rTitle.className = 'text-[11px] font-bold line-clamp-2';
+      rTitle.textContent = r.title;
+      info.appendChild(rTitle);
+      card.appendChild(info);
 
       rList.appendChild(card);
     });
   } else {
-    document.getElementById('m-related').style.display = 'none';
+    relatedSection.style.display = 'none';
   }
 
   // Threads
@@ -247,22 +395,30 @@ const openM = (id) => {
   tList.textContent = '';
   (m.threads || []).forEach(t => {
     const div = document.createElement('div');
-    div.className = 'bg-slate-50/80 p-3 rounded-lg text-xs';
-
+    div.className = 'bg-slate-50 p-2.5 rounded-lg';
     const text = document.createElement('span');
+    text.className = 'text-xs';
     text.textContent = t.text;
     div.appendChild(text);
-
     const date = document.createElement('span');
-    date.className = 'block text-[8px] text-slate-300 mt-1';
+    date.className = 'block text-[9px] text-slate-300 mt-0.5';
     date.textContent = t.date;
     div.appendChild(date);
-
     tList.appendChild(div);
   });
 
   document.getElementById('modal').classList.remove('hidden');
 };
+
+// --- Search ---
+let searchTimeout;
+document.getElementById('search').addEventListener('input', (e) => {
+  clearTimeout(searchTimeout);
+  searchTimeout = setTimeout(() => {
+    searchQuery = e.target.value.trim();
+    render();
+  }, 300);
+});
 
 // --- Thread Add ---
 document.getElementById('t-add').addEventListener('click', () => {
@@ -300,9 +456,21 @@ document.getElementById('close').addEventListener('click', () => {
   document.getElementById('modal').classList.add('hidden');
 });
 
+// Close modal on backdrop click
+document.getElementById('modal').addEventListener('click', (e) => {
+  if (e.target === e.currentTarget) {
+    document.getElementById('modal').classList.add('hidden');
+  }
+});
+
 // --- Settings ---
 document.getElementById('go-settings').addEventListener('click', () => {
   chrome.tabs.create({ url: chrome.runtime.getURL('settings.html') });
+});
+
+// Live-refresh
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === 'local' && (changes.dumps || changes.boards)) load();
 });
 
 // --- Init ---
