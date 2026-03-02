@@ -395,18 +395,28 @@ async function saveCurrentPage() {
         status.className = 'text-center text-[10px] text-red-500 font-bold mt-1.5';
       } else {
         const engineLabel = ENGINE_LABELS[response.engine] || 'AI';
-        status.textContent = `Saved! (${engineLabel})`;
-        status.className = 'text-center text-[10px] text-emerald-500 font-bold mt-1.5';
-        saveBtn.textContent = 'Saved!';
-        saveBtn.className = 'w-full bg-emerald-500 text-white font-bold py-2.5 rounded-xl text-xs';
         document.getElementById('note').value = '';
         updateAIStatus();
+
+        if (response.warning) {
+          // Saved but AI analysis failed — show warning
+          status.textContent = `Saved (no AI): ${response.warning.slice(0, 80)}`;
+          status.className = 'text-center text-[10px] text-amber-600 font-bold mt-1.5';
+          saveBtn.textContent = 'Saved (no AI)';
+          saveBtn.className = 'w-full bg-amber-500 text-white font-bold py-2.5 rounded-xl text-xs';
+        } else {
+          status.textContent = `Saved! (${engineLabel})`;
+          status.className = 'text-center text-[10px] text-emerald-500 font-bold mt-1.5';
+          saveBtn.textContent = 'Saved!';
+          saveBtn.className = 'w-full bg-emerald-500 text-white font-bold py-2.5 rounded-xl text-xs';
+        }
+
         setTimeout(() => {
           saveBtn.className = 'w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl text-xs transition';
           saveBtn.disabled = false;
           saveBtn.textContent = 'Save This Page';
           status.classList.add('hidden');
-        }, 2000);
+        }, 3000);
       }
     });
   } catch (err) {

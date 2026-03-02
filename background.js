@@ -139,7 +139,7 @@ async function askAITrial(prompt, installID) {
 
 // Direct Gemini call (user's own API key) — throws on failure for fallback chain
 async function askAIDirect(prompt, apiKey) {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-8b:generateContent?key=${apiKey}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${apiKey}`;
   const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -159,13 +159,24 @@ async function askAIDirect(prompt, apiKey) {
       }
     })
   });
-  if (!res.ok) throw new Error(`Gemini API HTTP ${res.status}`);
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    throw new Error(`Gemini API ${res.status}: ${body.slice(0, 200)}`);
+  }
   const json = await res.json();
-  return JSON.parse(json.candidates[0].content.parts[0].text);
+  const candidates = json.candidates;
+  if (!candidates || !candidates.length) {
+    const reason = json.promptFeedback?.blockReason || 'no candidates returned';
+    throw new Error(`Gemini blocked: ${reason}`);
+  }
+  const text = candidates[0].content?.parts?.[0]?.text;
+  if (!text) throw new Error('Gemini returned empty response');
+  return JSON.parse(text);
 }
 
 async function askAI(prompt) {
   const { geminiApiKey, installID } = await chrome.storage.local.get({ geminiApiKey: '', installID: '' });
+  let cloudError = null;
 
   // Tier 1: Built-in AI (Gemini Nano) — free, instant, private
   try {
@@ -183,6 +194,7 @@ async function askAI(prompt) {
       r._engine = 'cloud';
       return r;
     } catch (err) {
+      cloudError = err.message;
       console.warn('Cloud AI failed:', err.message);
     }
   }
@@ -190,6 +202,12 @@ async function askAI(prompt) {
   // Tier 3: Trial — Supabase Edge Function (10/day)
   const r = await askAITrial(prompt, installID);
   r._engine = 'trial';
+
+  // If user has API key but cloud failed, override the generic message with specific error
+  if (cloudError && r.summary.startsWith('No AI available')) {
+    r.summary = `Cloud AI failed: ${cloudError}. Check your API key in Settings.`;
+  }
+
   return r;
 }
 
@@ -247,7 +265,8 @@ chrome.runtime.onMessage.addListener((msg, sender, sendRes) => {
               tags: ai.tags
             });
 
-            sendRes({ success: true, board: finalBoard, engine: ai._engine || null });
+            const warning = (ai.category === 'Uncategorized' && ai.tags.length === 0) ? ai.summary : null;
+            sendRes({ success: true, board: finalBoard, engine: ai._engine || null, warning });
           }
         });
       }).catch((err) => {
