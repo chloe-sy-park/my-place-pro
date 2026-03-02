@@ -14,9 +14,12 @@ function updateAIStatus() {
     } else if (s.hasApiKey) {
       el.textContent = 'Cloud AI';
       el.className = 'text-[9px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-600';
-    } else {
+    } else if (s.trialConfigured) {
       el.textContent = `Trial (${s.trialRemaining})`;
       el.className = 'text-[9px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-600';
+    } else {
+      el.textContent = 'No AI';
+      el.className = 'text-[9px] font-bold px-2 py-0.5 rounded-full bg-red-50 text-red-500';
     }
   });
 }
@@ -189,35 +192,23 @@ function openDetail(id) {
   const contentEl = document.getElementById('d-content');
   contentEl.textContent = '';
   const ytId = m.videoId || getYouTubeId(m.url);
+  const igEmbed = getInstagramEmbedUrl(m.url);
   if (ytId) {
-    const wrapper = document.createElement('a');
-    wrapper.href = `https://www.youtube.com/watch?v=${ytId}`;
-    wrapper.target = '_blank';
-    wrapper.rel = 'noopener';
-    wrapper.className = 'block relative w-full aspect-video rounded-xl overflow-hidden group';
-    const thumb = document.createElement('img');
-    thumb.src = `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`;
-    thumb.className = 'w-full h-full object-cover';
-    wrapper.appendChild(thumb);
-    const playBtn = document.createElement('div');
-    playBtn.className = 'absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/40 transition';
-    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    svg.setAttribute('width', '48');
-    svg.setAttribute('height', '48');
-    svg.setAttribute('viewBox', '0 0 64 64');
-    const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-    circle.setAttribute('cx', '32');
-    circle.setAttribute('cy', '32');
-    circle.setAttribute('r', '32');
-    circle.setAttribute('fill', 'rgba(0,0,0,0.6)');
-    svg.appendChild(circle);
-    const poly = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
-    poly.setAttribute('points', '26,20 26,44 46,32');
-    poly.setAttribute('fill', 'white');
-    svg.appendChild(poly);
-    playBtn.appendChild(svg);
-    wrapper.appendChild(playBtn);
-    contentEl.appendChild(wrapper);
+    const iframe = document.createElement('iframe');
+    iframe.src = `https://www.youtube.com/embed/${ytId}`;
+    iframe.className = 'w-full aspect-video rounded-xl';
+    iframe.setAttribute('frameborder', '0');
+    iframe.setAttribute('allowfullscreen', '');
+    iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
+    contentEl.appendChild(iframe);
+  } else if (igEmbed) {
+    const iframe = document.createElement('iframe');
+    iframe.src = igEmbed;
+    iframe.className = 'w-full rounded-xl';
+    iframe.style.minHeight = '400px';
+    iframe.setAttribute('frameborder', '0');
+    iframe.setAttribute('scrolling', 'no');
+    contentEl.appendChild(iframe);
   } else if (m.mediaUrl && !/\.(mp4|webm|ogg)$/i.test(m.mediaUrl)) {
     const img = document.createElement('img');
     img.src = m.mediaUrl;

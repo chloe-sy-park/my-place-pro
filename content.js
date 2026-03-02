@@ -1,13 +1,38 @@
-if (document.getElementById('mm-pin-btn')) throw new Error('JustDump already injected');
+if (document.getElementById('jd-host')) throw new Error('JustDump already injected');
 
 let target = null;
+
+// --- Shadow DOM encapsulated button ---
+const host = document.createElement('div');
+host.id = 'jd-host';
+host.style.cssText = 'position:absolute;z-index:2147483647;top:0;left:0;pointer-events:none;';
+const shadow = host.attachShadow({ mode: 'closed' });
+
+const style = document.createElement('style');
+style.textContent = `
+  button {
+    position: relative; padding: 8px 16px;
+    background: #6366f1; color: white; border: none; border-radius: 30px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 13px; font-weight: 800; cursor: pointer; pointer-events: auto;
+    box-shadow: 0 10px 25px rgba(99, 102, 241, 0.4);
+    display: none; align-items: center; gap: 8px;
+    transition: background 0.15s, transform 0.15s;
+  }
+  button:hover { background: #4f46e5; transform: translateY(-2px); }
+  button.saved { background: #10b981; }
+  button.error { background: #ef4444; }
+`;
+shadow.appendChild(style);
+
 const btn = document.createElement('button');
-btn.id = 'mm-pin-btn';
 const btnLabel = document.createElement('span');
 btnLabel.textContent = 'Save to JustDump';
 btn.appendChild(btnLabel);
-document.body.appendChild(btn);
+shadow.appendChild(btn);
+document.body.appendChild(host);
 
+// --- Context extraction ---
 function extractContext(el) {
   let url = window.location.href;
   let title = document.title;
@@ -20,6 +45,12 @@ function extractContext(el) {
   if (ogTitle && ogTitle.content && ogTitle.content.length > 2) title = ogTitle.content;
   if (ogDesc && ogDesc.content) text = ogDesc.content.slice(0, 500);
   const ogImage = (ogImg && ogImg.content) ? ogImg.content : null;
+
+  // Fallback: meta description tag
+  if (!text) {
+    const metaDesc = document.querySelector('meta[name="description"]');
+    if (metaDesc && metaDesc.content) text = metaDesc.content.slice(0, 500);
+  }
 
   // Find closest link to get the real destination URL
   const link = el.closest('a[href]');
@@ -35,7 +66,6 @@ function extractContext(el) {
   );
 
   if (container) {
-    // Title from YouTube elements
     const titleEl = container.querySelector(
       '#video-title, #video-title-link, h3 a, h3, h2 a, h2'
     );
@@ -44,7 +74,6 @@ function extractContext(el) {
       if (t.length > 2) title = t;
     }
 
-    // Extra metadata from container (channel name, view count, caption, etc.)
     const metaEls = container.querySelectorAll(
       '#metadata-line span, #channel-name, .ytd-channel-name, ' +
       'span[dir="auto"], .caption, time, [datetime]'
@@ -58,7 +87,7 @@ function extractContext(el) {
     if (alt && alt.length > 2) title = alt;
   }
 
-  // If on a YouTube watch page, grab description
+  // YouTube watch/shorts page
   if (/youtube\.com\/(watch|shorts)/.test(url) || /youtube\.com\/(watch|shorts)/.test(window.location.href)) {
     const desc = document.querySelector('#description-text, ytd-text-inline-expander, #description');
     if (desc) {
@@ -107,46 +136,72 @@ function extractContext(el) {
     }
   }
 
-  const videoId = getYouTubeId(url);
-  return { url, title, videoId, text, ogImage };
-}
-
-document.addEventListener('mouseover', (e) => {
-  let el = e.target;
-  let isMedia = (el.tagName === 'IMG' || el.tagName === 'VIDEO') && el.offsetWidth > 100;
-  const isArticle = (el.tagName === 'P' || el.tagName === 'H1') && e.altKey;
-
-  // Instagram/Twitter/etc: images are behind overlay divs — find the largest image in the container
-  if (!isMedia && !isArticle) {
-    const container = el.closest('article, [role="link"]');
-    if (container) {
-      let bestImg = null;
-      let maxArea = 0;
-      container.querySelectorAll('img[src]').forEach(i => {
-        const area = i.offsetWidth * i.offsetHeight;
-        if (area > maxArea) { maxArea = area; bestImg = i; }
-      });
-      if (bestImg && bestImg.offsetWidth > 100) {
-        el = bestImg;
-        isMedia = true;
+  // Fallback: find the first large image on the page if no ogImage
+  let firstImage = ogImage;
+  if (!firstImage) {
+    const imgs = document.querySelectorAll('img[src]');
+    let maxArea = 0;
+    for (const img of imgs) {
+      const area = img.naturalWidth * img.naturalHeight;
+      if (area > maxArea && img.naturalWidth > 200) {
+        maxArea = area;
+        firstImage = img.src;
       }
     }
   }
 
-  if (isMedia || isArticle) {
-    target = el;
-    const rect = el.getBoundingClientRect();
-    btn.style.top = `${rect.top + window.scrollY + 10}px`;
-    btn.style.left = `${rect.left + window.scrollX + 10}px`;
+  const videoId = getYouTubeId(url);
+  return { url, title, videoId, text, ogImage: firstImage };
+}
+
+// --- Media detection (works across SPA navigation) ---
+function findMediaTarget(el) {
+  // Direct IMG/VIDEO > 100px
+  if ((el.tagName === 'IMG' || el.tagName === 'VIDEO') && el.offsetWidth > 100) {
+    return { el, isMedia: true, isArticle: false };
+  }
+
+  // Alt+hover on text = article mode
+  if ((el.tagName === 'P' || el.tagName === 'H1') && window.event && window.event.altKey) {
+    return { el, isMedia: false, isArticle: true };
+  }
+
+  // Instagram/Twitter: images behind overlay divs — find largest in container
+  const container = el.closest('article, [role="link"], [data-testid="tweet"]');
+  if (container) {
+    let bestImg = null;
+    let maxArea = 0;
+    container.querySelectorAll('img[src]').forEach(i => {
+      const area = i.offsetWidth * i.offsetHeight;
+      if (area > maxArea) { maxArea = area; bestImg = i; }
+    });
+    if (bestImg && bestImg.offsetWidth > 100) {
+      return { el: bestImg, isMedia: true, isArticle: false };
+    }
+  }
+
+  return null;
+}
+
+// --- Mouseover handler ---
+document.addEventListener('mouseover', (e) => {
+  const result = findMediaTarget(e.target);
+
+  if (result) {
+    target = result.el;
+    const rect = target.getBoundingClientRect();
+    host.style.top = `${rect.top + window.scrollY + 10}px`;
+    host.style.left = `${rect.left + window.scrollX + 10}px`;
     btn.style.display = 'flex';
-    btn.classList.remove('saved');
+    btn.classList.remove('saved', 'error');
     btn.style.background = '';
-    btnLabel.textContent = isArticle ? 'Save Article' : 'Save to JustDump';
-  } else if (e.target !== btn && !btn.contains(e.target)) {
+    btnLabel.textContent = result.isArticle ? 'Save Article' : 'Save to JustDump';
+  } else if (!btn.contains(e.target) && e.target !== host) {
     btn.style.display = 'none';
   }
 });
 
+// --- Save handler ---
 btn.onclick = () => {
   const isArt = btnLabel.textContent.includes('Article');
   const ctx = extractContext(target);
@@ -164,11 +219,26 @@ btn.onclick = () => {
   chrome.runtime.sendMessage({ action: 'save', data }, (response) => {
     if (chrome.runtime.lastError || !response || !response.success) {
       btnLabel.textContent = 'Error!';
-      btn.style.background = '#ef4444';
+      btn.classList.add('error');
     } else {
       btnLabel.textContent = 'Saved!';
       btn.classList.add('saved');
     }
-    setTimeout(() => { btn.style.display = 'none'; btn.style.background = ''; }, 1500);
+    setTimeout(() => { btn.style.display = 'none'; btn.classList.remove('saved', 'error'); }, 1500);
   });
 };
+
+// --- MutationObserver for SPA navigation ---
+let lastUrl = window.location.href;
+const observer = new MutationObserver(() => {
+  const currentUrl = window.location.href;
+  if (currentUrl !== lastUrl) {
+    lastUrl = currentUrl;
+    // Re-ensure host is in the DOM (some SPAs rebuild body)
+    if (!document.body.contains(host)) {
+      document.body.appendChild(host);
+    }
+  }
+});
+
+observer.observe(document.body, { childList: true, subtree: true });

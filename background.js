@@ -99,7 +99,7 @@ async function syncToSupabase(payload) {
 // Trial: call Edge Function proxy (no API key exposed)
 async function askAITrial(prompt, installID) {
   if (!TRIAL_FUNCTION_URL || !SUPABASE_KEY) {
-    return { summary: 'AI analysis was skipped.', category: 'Uncategorized', tags: [], board: 'Inbox' };
+    return { summary: 'No AI available. Add a Gemini API key in Settings, or use Chrome 138+ for free on-device AI.', category: 'Uncategorized', tags: [], board: 'Inbox' };
   }
 
   try {
@@ -202,7 +202,8 @@ chrome.runtime.onMessage.addListener((msg, sender, sendRes) => {
         sendRes({
           builtIn,
           hasApiKey: !!store.geminiApiKey,
-          trialRemaining: Math.max(0, DAILY_TRIAL_LIMIT - trialUsed)
+          trialRemaining: Math.max(0, DAILY_TRIAL_LIMIT - trialUsed),
+          trialConfigured: !!(TRIAL_FUNCTION_URL && SUPABASE_KEY)
         });
       });
     });
