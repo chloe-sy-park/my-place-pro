@@ -371,6 +371,7 @@ async function saveCurrentPage() {
     let pageText = '';
     let ogImage = null;
     let ogTitle = null;
+    let extracted = {};
     try {
       const [{ result }] = await chrome.scripting.executeScript({
         target: { tabId: tab.id },
@@ -395,7 +396,7 @@ async function saveCurrentPage() {
           // Instagram: extract username + caption + ALL post images (carousel support)
           if (/instagram\.com\/(p|reel|reels)\//.test(url)) {
             const parts = [];
-            const article = document.querySelector('article');
+            const article = document.querySelector('article[role="presentation"]') || document.querySelector('article') || document.querySelector('main[role="main"]');
             let postImage = ogImage;
             let postImages = [];
             if (article) {
@@ -475,7 +476,7 @@ async function saveCurrentPage() {
           return { text: clone.innerText.trim().slice(0, 2000), ogImage, title: ogTitle?.content || null };
         }
       });
-      const extracted = result || {};
+      extracted = result || {};
       pageText = typeof extracted === 'string' ? extracted : (extracted.text || '');
       ogImage = typeof extracted === 'object' ? extracted.ogImage : null;
       ogTitle = typeof extracted === 'object' ? extracted.title : null;

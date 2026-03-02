@@ -115,7 +115,7 @@ function extractContext(el) {
 
   // Instagram: extract username + caption (handle both feed and modal views)
   if (/instagram\.com/.test(window.location.href)) {
-    const article = el.closest('article') || document.querySelector('article');
+    const article = el.closest('article') || document.querySelector('article[role="presentation"]') || document.querySelector('article') || document.querySelector('main[role="main"]');
     if (article) {
       const user = article.querySelector('header a');
       if (user) {
@@ -185,7 +185,7 @@ function extractContext(el) {
   let firstImage = ogImage;
   let mediaImages = [];
   if (/instagram\.com/.test(window.location.href)) {
-    const article = el.closest('article') || document.querySelector('article');
+    const article = el.closest('article') || document.querySelector('article[role="presentation"]') || document.querySelector('article') || document.querySelector('main[role="main"]');
     if (article) {
       for (const img of article.querySelectorAll('img[src]')) {
         if (img.closest('header')) continue; // skip profile pictures
