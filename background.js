@@ -31,7 +31,7 @@ async function createBuiltInSession() {
   return LanguageModel.create({
     initialPrompts: [{
       role: 'system',
-      content: 'You analyze web content. Return JSON with: summary (1 concise English sentence), category (1 word), tags (exactly 3 relevant lowercase tags), board (from the given list, or "Inbox" if none fits).'
+      content: 'You analyze web content. Return JSON with: summary (1 concise English sentence), category (1 word), tags (8 to 10 relevant lowercase tags covering the topic broadly), board (from the given list, or "Inbox" if none fits).'
     }]
   });
 }
@@ -238,7 +238,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendRes) => {
     chrome.storage.local.get({ dumps: [], boards: ['Inbox'], installID: null }, (store) => {
       const boardList = store.boards.join(', ');
       const content = msg.data.text ? msg.data.text.slice(0, 500) : msg.data.title;
-      const p = `Analyze: ${msg.data.title}. Content: ${content}. Provide: 1-sentence English summary, 1 category, 3 tags, and recommend ONE board from this list: [${boardList}]. If no board fits well, recommend "Inbox".`;
+      const p = `Analyze: ${msg.data.title}. Content: ${content}. Provide: 1-sentence English summary, 1 category, 8 to 10 relevant lowercase tags that broadly describe this content (topics, themes, formats, tools, concepts), and recommend ONE board from this list: [${boardList}]. If no board fits well, recommend "Inbox".`;
 
       console.log('[JustDump] Calling AI...');
       askAI(p).then(ai => {

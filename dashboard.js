@@ -11,10 +11,17 @@ function getContentType(item) {
   return 'article';
 }
 
+const TYPE_LABELS = { video: 'Video', instagram: 'Instagram', xpost: 'X Post', image: 'Image', article: 'Web Page' };
+const TYPE_COLORS = {
+  video: 'bg-red-50 text-red-600',
+  instagram: 'bg-pink-50 text-pink-600',
+  xpost: 'bg-slate-800 text-white',
+  image: 'bg-emerald-50 text-emerald-600',
+  article: 'bg-blue-50 text-blue-600'
+};
+
 function getSourceLabel(item) {
-  const type = getContentType(item);
-  const labels = { video: 'YouTube', instagram: 'Instagram', xpost: 'X', image: 'Image', article: 'Web' };
-  return labels[type] || 'Web';
+  return TYPE_LABELS[getContentType(item)] || 'Web Page';
 }
 
 const TYPE_FILTERS = [
@@ -158,25 +165,39 @@ const render = () => {
     const body = document.createElement('div');
     body.className = 'p-4';
 
-    // Source badge
-    const source = document.createElement('span');
-    source.className = 'text-[9px] font-bold text-slate-400 uppercase';
-    source.textContent = getSourceLabel(m);
-    body.appendChild(source);
-
     // Title
     const title = document.createElement('h3');
     title.className = 'text-sm font-bold mt-1 line-clamp-2 leading-snug';
     title.textContent = m.title;
     body.appendChild(title);
 
-    // Category tag
-    if (m.category && m.category !== 'Uncategorized') {
-      const cat = document.createElement('span');
-      cat.className = 'inline-block text-[8px] font-bold bg-indigo-50 text-indigo-400 px-1.5 py-0.5 rounded mt-2';
-      cat.textContent = m.category;
-      body.appendChild(cat);
+    // Tag cloud
+    const tagsRow = document.createElement('div');
+    tagsRow.className = 'flex gap-1 flex-wrap mt-2';
+
+    // Content type badge
+    const cType = getContentType(m);
+    const typeBadge = document.createElement('span');
+    typeBadge.className = `text-[8px] font-bold px-1.5 py-0.5 rounded-full ${TYPE_COLORS[cType] || 'bg-slate-100 text-slate-500'}`;
+    typeBadge.textContent = TYPE_LABELS[cType] || 'Web Page';
+    tagsRow.appendChild(typeBadge);
+
+    // AI tags (show up to 5 in grid, full in detail)
+    if (m.tags && m.tags.length > 0) {
+      m.tags.slice(0, 5).forEach(tag => {
+        const span = document.createElement('span');
+        span.className = 'text-[8px] bg-slate-50 text-slate-500 px-1.5 py-0.5 rounded-full font-medium';
+        span.textContent = tag;
+        tagsRow.appendChild(span);
+      });
+      if (m.tags.length > 5) {
+        const more = document.createElement('span');
+        more.className = 'text-[8px] text-slate-400 px-1 py-0.5 font-medium';
+        more.textContent = `+${m.tags.length - 5}`;
+        tagsRow.appendChild(more);
+      }
     }
+    body.appendChild(tagsRow);
 
     // Summary (for articles without thumbnails)
     if (!thumbUrl && m.summary && !m.summary.includes('was skipped') && !m.summary.includes('failed')) {
@@ -248,21 +269,32 @@ const openM = (id) => {
     noteWrap.classList.add('hidden');
   }
 
-  // Tags
+  // Tag cloud
   const tagsContainer = document.getElementById('m-tags');
   tagsContainer.textContent = '';
+
+  // Content type badge
+  const mType = getContentType(m);
+  const mTypeBadge = document.createElement('span');
+  mTypeBadge.className = `text-[11px] font-bold px-2.5 py-1 rounded-full ${TYPE_COLORS[mType] || 'bg-slate-100 text-slate-500'}`;
+  mTypeBadge.textContent = TYPE_LABELS[mType] || 'Web Page';
+  tagsContainer.appendChild(mTypeBadge);
+
+  // Category badge
+  if (m.category && m.category !== 'Uncategorized') {
+    const catSpan = document.createElement('span');
+    catSpan.className = 'text-[11px] bg-indigo-50 text-indigo-500 px-2.5 py-1 rounded-full font-bold';
+    catSpan.textContent = m.category;
+    tagsContainer.appendChild(catSpan);
+  }
+
+  // AI-generated tags (show all in detail)
   (m.tags || []).forEach(tag => {
     const span = document.createElement('span');
     span.className = 'text-[11px] bg-slate-100 text-slate-600 px-2.5 py-1 rounded-full font-medium';
     span.textContent = tag;
     tagsContainer.appendChild(span);
   });
-  if (m.category && m.category !== 'Uncategorized') {
-    const catSpan = document.createElement('span');
-    catSpan.className = 'text-[11px] bg-indigo-50 text-indigo-500 px-2.5 py-1 rounded-full font-bold';
-    catSpan.textContent = m.category;
-    tagsContainer.insertBefore(catSpan, tagsContainer.firstChild);
-  }
 
   // Content (left panel)
   const contentEl = document.getElementById('m-content');

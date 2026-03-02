@@ -158,28 +158,51 @@ function renderItems() {
       card.appendChild(sum);
     }
 
-    // Tags
+    // Tag cloud
+    const tagsRow = document.createElement('div');
+    tagsRow.className = 'flex gap-1 flex-wrap mt-2';
+
+    // Content type badge first
+    const cType = getContentType(m);
+    const typeBadge = document.createElement('span');
+    typeBadge.className = `text-[8px] font-bold px-1.5 py-0.5 rounded-full ${TYPE_COLORS[cType] || 'bg-slate-100 text-slate-500'}`;
+    typeBadge.textContent = TYPE_LABELS[cType] || 'Web Page';
+    tagsRow.appendChild(typeBadge);
+
+    // AI-generated tags
     if (m.tags && m.tags.length > 0) {
-      const tagsRow = document.createElement('div');
-      tagsRow.className = 'flex gap-1 flex-wrap mt-2';
-      m.tags.slice(0, 3).forEach(tag => {
+      m.tags.forEach(tag => {
         const span = document.createElement('span');
-        span.className = 'text-[8px] bg-indigo-50 text-indigo-500 px-1.5 py-0.5 rounded-full font-bold';
-        span.textContent = `#${tag}`;
+        span.className = 'text-[8px] bg-slate-50 text-slate-500 px-1.5 py-0.5 rounded-full font-medium';
+        span.textContent = tag;
         tagsRow.appendChild(span);
       });
-      card.appendChild(tagsRow);
     }
+    card.appendChild(tagsRow);
 
     list.appendChild(card);
   });
 }
 
+function getContentType(item) {
+  if (item.videoId || getYouTubeId(item.url)) return 'video';
+  if (/instagram\.com/.test(item.url || '')) return 'instagram';
+  if (/twitter\.com|x\.com/.test(item.url || '')) return 'xpost';
+  if (item.mediaUrl && !/\.(mp4|webm|ogg)$/i.test(item.mediaUrl)) return 'image';
+  return 'article';
+}
+
+const TYPE_LABELS = { video: 'Video', instagram: 'Instagram', xpost: 'X Post', image: 'Image', article: 'Web Page' };
+const TYPE_COLORS = {
+  video: 'bg-red-50 text-red-600',
+  instagram: 'bg-pink-50 text-pink-600',
+  xpost: 'bg-slate-800 text-white',
+  image: 'bg-emerald-50 text-emerald-600',
+  article: 'bg-blue-50 text-blue-600'
+};
+
 function getSourceLabel(item) {
-  if (item.videoId || getYouTubeId(item.url)) return 'YouTube';
-  if (/instagram\.com/.test(item.url || '')) return 'Instagram';
-  if (/twitter\.com|x\.com/.test(item.url || '')) return 'X';
-  return 'Web';
+  return TYPE_LABELS[getContentType(item)] || 'Web Page';
 }
 
 // --- Detail View ---
@@ -246,15 +269,26 @@ function openDetail(id) {
     noteWrap.classList.add('hidden');
   }
 
-  // Tags
+  // Tag cloud
   const tagsEl = document.getElementById('d-tags');
   tagsEl.textContent = '';
+
+  // Content type badge
+  const dType = getContentType(m);
+  const dTypeBadge = document.createElement('span');
+  dTypeBadge.className = `text-[9px] font-bold px-2 py-0.5 rounded-full ${TYPE_COLORS[dType] || 'bg-slate-100 text-slate-500'}`;
+  dTypeBadge.textContent = TYPE_LABELS[dType] || 'Web Page';
+  tagsEl.appendChild(dTypeBadge);
+
+  // Category badge
   if (m.category && m.category !== 'Uncategorized') {
     const catSpan = document.createElement('span');
     catSpan.className = 'text-[9px] bg-indigo-50 text-indigo-500 px-2 py-0.5 rounded-full font-bold';
     catSpan.textContent = m.category;
     tagsEl.appendChild(catSpan);
   }
+
+  // AI-generated tags (show all)
   (m.tags || []).forEach(tag => {
     const span = document.createElement('span');
     span.className = 'text-[9px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full font-medium';
