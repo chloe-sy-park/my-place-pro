@@ -375,17 +375,43 @@ async function saveCurrentPage() {
             if (parts.length) return { text: parts.join('\n'), ogImage, title: ogTitle?.content || null };
           }
 
-          // Instagram: extract username + caption
+          // Instagram: extract username + caption + post image
           if (/instagram\.com\/(p|reel|reels)\//.test(url)) {
             const parts = [];
             const article = document.querySelector('article');
+            let postImage = ogImage;
             if (article) {
               const user = article.querySelector('header a');
               if (user) parts.push('@' + user.textContent.trim());
-              const caption = article.querySelector('h1') || article.querySelector('div > span[dir="auto"]');
+              // Try multiple caption selectors (Instagram DOM varies)
+              const caption = article.querySelector('h1')
+                || article.querySelector('div > span[dir="auto"]')
+                || article.querySelector('span[dir="auto"]');
               if (caption) parts.push(caption.textContent.trim().slice(0, 1000));
+              // Extract hashtags for richer context
+              const hashtags = article.querySelectorAll('a[href*="/explore/tags/"]');
+              if (hashtags.length > 0) {
+                const tags = [...hashtags].map(a => a.textContent.trim()).filter(Boolean);
+                if (tags.length) parts.push('Hashtags: ' + tags.join(' '));
+              }
+              // Extract post image from article (skip profile pics in header)
+              let bestImg = null, maxArea = 0;
+              for (const img of article.querySelectorAll('img[src]')) {
+                if (img.closest('header')) continue;
+                const area = img.naturalWidth * img.naturalHeight;
+                if (area > maxArea && img.naturalWidth > 100) {
+                  maxArea = area;
+                  bestImg = img;
+                }
+              }
+              if (bestImg) postImage = bestImg.src;
             }
-            if (parts.length) return { text: parts.join('\n'), ogImage, title: ogTitle?.content || null };
+            // Use og:title but fall back to extracted username if og:title is generic
+            let igTitle = ogTitle?.content || null;
+            if (igTitle && /^(Instagram|.*게시물.*Instagram|.*Photos.*Videos)/.test(igTitle)) {
+              igTitle = parts.length > 0 ? parts[0].slice(0, 100) : null;
+            }
+            if (parts.length) return { text: parts.join('\n'), ogImage: postImage, title: igTitle };
           }
 
           // Twitter/X: extract tweet text

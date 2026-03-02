@@ -98,23 +98,53 @@ function extractContext(el) {
     if (ch) text = `Channel: ${ch.textContent.trim()}\n${text}`;
   }
 
-  // Instagram: extract username + caption
+  // Instagram: extract username + caption (handle both feed and modal views)
   if (/instagram\.com/.test(window.location.href)) {
     const article = el.closest('article') || document.querySelector('article');
     if (article) {
       const user = article.querySelector('header a');
       if (user) {
         const username = user.textContent.trim();
-        title = `@${username}`;
-        text = `@${username}`;
+        if (username) {
+          title = `@${username}`;
+          text = `@${username}`;
+        }
       }
+
+      // Try multiple caption/text selectors (Instagram DOM varies by view)
+      const caption = article.querySelector('h1')
+        || article.querySelector('div > span[dir="auto"]');
+      if (caption) {
+        const capText = caption.textContent.trim();
+        if (capText.length > 5) text += '\n' + capText.slice(0, 800);
+      }
+
+      // Also grab all visible text spans for richer context
       const spans = article.querySelectorAll('span[dir="auto"]');
       for (const span of spans) {
         const t = span.textContent.trim();
-        if (t.length > 20) { text += '\n' + t.slice(0, 800); break; }
+        if (t.length > 20 && !text.includes(t.slice(0, 50))) {
+          text += '\n' + t.slice(0, 800);
+          break;
+        }
       }
-      const caption = article.querySelector('h1');
-      if (caption) text += '\n' + caption.textContent.trim().slice(0, 800);
+
+      // Extract hashtags from the post
+      const hashtags = article.querySelectorAll('a[href*="/explore/tags/"]');
+      if (hashtags.length > 0) {
+        const tags = [...hashtags].map(a => a.textContent.trim()).filter(Boolean);
+        if (tags.length) text += '\nHashtags: ' + tags.join(' ');
+      }
+    }
+
+    // Safety net: if title is still a generic page title, derive from URL or caption
+    if (/^(Instagram|.*게시물.*Instagram|.*Photos.*Videos)/.test(title)) {
+      const postMatch = url.match(/instagram\.com\/(p|reel|reels)\/([\w-]+)/);
+      if (postMatch && text.length > 5) {
+        // Use first line of extracted text as title
+        const firstLine = text.split('\n').find(l => l.trim().length > 2);
+        if (firstLine) title = firstLine.trim().slice(0, 100);
+      }
     }
   }
 
@@ -136,8 +166,26 @@ function extractContext(el) {
     }
   }
 
-  // Fallback: find the first large image on the page if no ogImage
+  // Instagram: extract post image from article container (og:image is page-level, not post-level)
   let firstImage = ogImage;
+  if (/instagram\.com/.test(window.location.href)) {
+    const article = el.closest('article') || document.querySelector('article');
+    if (article) {
+      let bestImg = null;
+      let maxArea = 0;
+      for (const img of article.querySelectorAll('img[src]')) {
+        if (img.closest('header')) continue; // skip profile pictures
+        const area = img.naturalWidth * img.naturalHeight;
+        if (area > maxArea && img.naturalWidth > 100) {
+          maxArea = area;
+          bestImg = img;
+        }
+      }
+      if (bestImg) firstImage = bestImg.src;
+    }
+  }
+
+  // Fallback: find the first large image on the page if no image yet
   if (!firstImage) {
     const imgs = document.querySelectorAll('img[src]');
     let maxArea = 0;
