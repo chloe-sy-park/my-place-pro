@@ -1,3 +1,5 @@
+console.log('[JustDump] background.js loaded — v1.3.0');
+
 const SUPABASE_URL = "";
 const SUPABASE_KEY = "";
 const TRIAL_FUNCTION_URL = "";
@@ -176,6 +178,7 @@ async function askAIDirect(prompt, apiKey) {
 
 async function askAI(prompt) {
   const { geminiApiKey, installID } = await chrome.storage.local.get({ geminiApiKey: '', installID: '' });
+  console.log('[JustDump] API key:', geminiApiKey ? `present (${geminiApiKey.length} chars)` : 'EMPTY');
   let cloudError = null;
 
   // Tier 1: Built-in AI (Gemini Nano) — free, instant, private
@@ -211,7 +214,9 @@ async function askAI(prompt) {
   return r;
 }
 
+console.log('[JustDump] Registering message listener...');
 chrome.runtime.onMessage.addListener((msg, sender, sendRes) => {
+  console.log('[JustDump] Message received:', msg.action);
   if (msg.action === 'getAIStatus') {
     getBuiltInStatus().then(builtIn => {
       chrome.storage.local.get({ geminiApiKey: '', trialDate: '', trialCount: 0 }, (store) => {
@@ -229,12 +234,15 @@ chrome.runtime.onMessage.addListener((msg, sender, sendRes) => {
   }
 
   if (msg.action === 'save') {
+    console.log('[JustDump] Save requested:', msg.data.title, '| URL:', msg.data.url);
     chrome.storage.local.get({ dumps: [], boards: ['Inbox'], installID: null }, (store) => {
       const boardList = store.boards.join(', ');
       const content = msg.data.text ? msg.data.text.slice(0, 500) : msg.data.title;
       const p = `Analyze: ${msg.data.title}. Content: ${content}. Provide: 1-sentence English summary, 1 category, 3 tags, and recommend ONE board from this list: [${boardList}]. If no board fits well, recommend "Inbox".`;
 
+      console.log('[JustDump] Calling AI...');
       askAI(p).then(ai => {
+        console.log('[JustDump] AI result:', ai._engine, '|', ai.summary?.slice(0, 60));
         const userBoard = msg.data.requestedBoard;
         const aiBoard = store.boards.includes(ai.board) ? ai.board : 'Inbox';
         const finalBoard = userBoard && store.boards.includes(userBoard) ? userBoard : aiBoard;

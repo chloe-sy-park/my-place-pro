@@ -1,6 +1,8 @@
 document.addEventListener('DOMContentLoaded', () => {
   const apiKeyInput = document.getElementById('api-key');
   const toggleBtn = document.getElementById('toggle-key');
+  const testBtn = document.getElementById('test-key');
+  const testResult = document.getElementById('test-result');
   const optinCheckbox = document.getElementById('supabase-optin');
   const saveBtn = document.getElementById('save-btn');
   const status = document.getElementById('status');
@@ -77,17 +79,64 @@ document.addEventListener('DOMContentLoaded', () => {
     toggleBtn.textContent = isPassword ? 'Hide' : 'Show';
   });
 
+  // Test API key
+  testBtn.addEventListener('click', async () => {
+    const key = apiKeyInput.value.trim();
+    if (!key) {
+      testResult.textContent = 'Enter an API key first.';
+      testResult.className = 'text-xs font-bold text-red-500 mt-1';
+      return;
+    }
+
+    testResult.textContent = 'Testing...';
+    testResult.className = 'text-xs font-bold text-slate-400 mt-1';
+
+    try {
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${key}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: 'Say "OK" in one word.' }] }]
+          })
+        }
+      );
+      if (res.ok) {
+        testResult.textContent = 'API key is valid! Click Save to apply.';
+        testResult.className = 'text-xs font-bold text-emerald-500 mt-1';
+      } else {
+        const body = await res.json().catch(() => ({}));
+        testResult.textContent = `Invalid: ${body.error?.message || `HTTP ${res.status}`}`;
+        testResult.className = 'text-xs font-bold text-red-500 mt-1';
+      }
+    } catch (err) {
+      testResult.textContent = `Network error: ${err.message}`;
+      testResult.className = 'text-xs font-bold text-red-500 mt-1';
+    }
+  });
+
   // Save settings
   saveBtn.addEventListener('click', () => {
+    const key = apiKeyInput.value.trim();
     chrome.storage.local.set({
-      geminiApiKey: apiKeyInput.value.trim(),
+      geminiApiKey: key,
       supabaseOptIn: optinCheckbox.checked
     }, () => {
-      status.textContent = 'Settings saved!';
-      status.classList.remove('hidden');
-      setTimeout(() => status.classList.add('hidden'), 2000);
+      // Verify the save worked
+      chrome.storage.local.get(['geminiApiKey'], (check) => {
+        if (check.geminiApiKey === key) {
+          status.textContent = key ? 'Settings saved! API key stored.' : 'Settings saved!';
+          status.className = 'text-center text-xs text-emerald-500 font-bold';
+        } else {
+          status.textContent = 'Warning: API key may not have saved correctly.';
+          status.className = 'text-center text-xs text-red-500 font-bold';
+        }
+        status.classList.remove('hidden');
+        setTimeout(() => status.classList.add('hidden'), 3000);
+      });
       chrome.storage.local.get({ trialDate: '', trialCount: 0 }, (res) => {
-        updateTrialDisplay(apiKeyInput.value.trim(), res.trialDate, res.trialCount);
+        updateTrialDisplay(key, res.trialDate, res.trialCount);
       });
     });
   });

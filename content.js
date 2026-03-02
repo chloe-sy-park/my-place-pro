@@ -154,21 +154,22 @@ function extractContext(el) {
   return { url, title, videoId, text, ogImage: firstImage };
 }
 
-// --- Media detection (works across SPA navigation) ---
+// --- Target detection (media + article containers) ---
 function findMediaTarget(el) {
-  // Direct IMG/VIDEO > 100px
+  // 1. Direct IMG/VIDEO > 100px — save as media
   if ((el.tagName === 'IMG' || el.tagName === 'VIDEO') && el.offsetWidth > 100) {
     return { el, isMedia: true, isArticle: false };
   }
 
-  // Alt+hover on text = article mode
-  if ((el.tagName === 'P' || el.tagName === 'H1') && window.event && window.event.altKey) {
-    return { el, isMedia: false, isArticle: true };
-  }
-
-  // Instagram/Twitter: images behind overlay divs — find largest in container
-  const container = el.closest('article, [role="link"], [data-testid="tweet"]');
-  if (container) {
+  // 2. Content container — check for media first, then article fallback
+  const container = el.closest(
+    'article, [role="article"], [data-testid="tweet"], [role="link"], ' +
+    'ytd-rich-item-renderer, ytd-video-renderer, ytd-compact-video-renderer, ' +
+    'ytd-grid-video-renderer, ytd-reel-item-renderer, ' +
+    '.post, .h-entry, .entry, .card'
+  );
+  if (container && container.offsetHeight > 80) {
+    // Find largest image inside container
     let bestImg = null;
     let maxArea = 0;
     container.querySelectorAll('img[src]').forEach(i => {
@@ -178,6 +179,8 @@ function findMediaTarget(el) {
     if (bestImg && bestImg.offsetWidth > 100) {
       return { el: bestImg, isMedia: true, isArticle: false };
     }
+    // No large image — save as article
+    return { el: container, isMedia: false, isArticle: true };
   }
 
   return null;
@@ -190,8 +193,14 @@ document.addEventListener('mouseover', (e) => {
   if (result) {
     target = result.el;
     const rect = target.getBoundingClientRect();
-    host.style.top = `${rect.top + window.scrollY + 10}px`;
-    host.style.left = `${rect.left + window.scrollX + 10}px`;
+    if (result.isArticle) {
+      // For article containers, position near cursor to avoid being far from hover point
+      host.style.top = `${e.pageY - 15}px`;
+      host.style.left = `${e.pageX + 15}px`;
+    } else {
+      host.style.top = `${rect.top + window.scrollY + 10}px`;
+      host.style.left = `${rect.left + window.scrollX + 10}px`;
+    }
     btn.style.display = 'flex';
     btn.classList.remove('saved', 'error');
     btn.style.background = '';
@@ -205,15 +214,32 @@ document.addEventListener('mouseover', (e) => {
 btn.onclick = () => {
   const isArt = btnLabel.textContent.includes('Article');
   const ctx = extractContext(target);
+
+  // For articles, extract text from the target container or cleaned body
+  let text = ctx.text;
+  if (isArt) {
+    if (target.innerText) {
+      const containerText = target.innerText.trim();
+      if (containerText.length > 50) text = containerText.slice(0, 2000);
+    }
+    if (!text || text.length < 50) {
+      const clone = document.body.cloneNode(true);
+      clone.querySelectorAll('nav, footer, aside, header, script, style, noscript, [role="navigation"]').forEach(n => n.remove());
+      text = clone.innerText.trim().slice(0, 2000);
+    }
+  }
+
   const data = {
     title: ctx.title,
     url: ctx.url,
     type: isArt ? 'article' : 'media',
     mediaUrl: ctx.videoId
       ? `https://img.youtube.com/vi/${ctx.videoId}/mqdefault.jpg`
-      : (target.src || target.currentSrc || ctx.ogImage || null),
+      : isArt
+        ? (ctx.ogImage || null)
+        : (target.src || target.currentSrc || ctx.ogImage || null),
     videoId: ctx.videoId || null,
-    text: isArt ? document.body.innerText.slice(0, 1500) : ctx.text
+    text: text
   };
   btnLabel.textContent = 'Saving...';
   chrome.runtime.sendMessage({ action: 'save', data }, (response) => {

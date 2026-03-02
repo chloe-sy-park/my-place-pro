@@ -194,13 +194,7 @@ function openDetail(id) {
   const ytId = m.videoId || getYouTubeId(m.url);
   const igEmbed = getInstagramEmbedUrl(m.url);
   if (ytId) {
-    const iframe = document.createElement('iframe');
-    iframe.src = `https://www.youtube.com/embed/${ytId}`;
-    iframe.className = 'w-full aspect-video rounded-xl';
-    iframe.setAttribute('frameborder', '0');
-    iframe.setAttribute('allowfullscreen', '');
-    iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
-    contentEl.appendChild(iframe);
+    createYouTubePlayer(ytId, contentEl);
   } else if (igEmbed) {
     const iframe = document.createElement('iframe');
     iframe.src = igEmbed;
@@ -325,22 +319,26 @@ async function saveCurrentPage() {
     const videoId = getYouTubeId(tab.url || '');
     let pageText = '';
     let ogImage = null;
+    let ogTitle = null;
     try {
       const [{ result }] = await chrome.scripting.executeScript({
         target: { tabId: tab.id },
         func: () => {
           const url = window.location.href;
+          const ogTitle = document.querySelector('meta[property="og:title"]');
+          const ogDesc = document.querySelector('meta[property="og:description"]');
           const ogImg = document.querySelector('meta[property="og:image"]');
-          const ogImage = (ogImg && ogImg.content) ? ogImg.content : null;
+          const ogImage = ogImg?.content || null;
+          const metaDesc = document.querySelector('meta[name="description"]');
 
-          // YouTube: extract channel, description, visible content
+          // YouTube: extract channel, description
           if (/youtube\.com\/(watch|shorts)/.test(url)) {
             const parts = [];
             const ch = document.querySelector('#channel-name a, ytd-channel-name a');
             if (ch) parts.push('Channel: ' + ch.textContent.trim());
             const desc = document.querySelector('#description-text, ytd-text-inline-expander, #description');
             if (desc) parts.push(desc.innerText.trim().slice(0, 1000));
-            if (parts.length) return { text: parts.join('\n'), ogImage };
+            if (parts.length) return { text: parts.join('\n'), ogImage, title: ogTitle?.content || null };
           }
 
           // Instagram: extract username + caption
@@ -353,27 +351,46 @@ async function saveCurrentPage() {
               const caption = article.querySelector('h1') || article.querySelector('div > span[dir="auto"]');
               if (caption) parts.push(caption.textContent.trim().slice(0, 1000));
             }
-            if (parts.length) return { text: parts.join('\n'), ogImage };
+            if (parts.length) return { text: parts.join('\n'), ogImage, title: ogTitle?.content || null };
           }
 
           // Twitter/X: extract tweet text
           if (/twitter\.com|x\.com/.test(url)) {
             const tweet = document.querySelector('[data-testid="tweetText"]');
-            if (tweet) return { text: tweet.textContent.trim().slice(0, 2000), ogImage };
+            if (tweet) return { text: tweet.textContent.trim().slice(0, 2000), ogImage, title: ogTitle?.content || null };
           }
 
-          return { text: document.body.innerText.slice(0, 1500), ogImage };
+          // Generic: try semantic content containers first
+          const mainEl = document.querySelector('article, [role="main"], main, .post-content, .article-body, .entry-content, #content');
+          if (mainEl) {
+            const mainText = mainEl.innerText.trim();
+            if (mainText.length > 100) return { text: mainText.slice(0, 2000), ogImage, title: ogTitle?.content || null };
+          }
+
+          // OG / meta description fallback
+          if (ogDesc?.content && ogDesc.content.length > 20) {
+            return { text: ogDesc.content, ogImage, title: ogTitle?.content || null };
+          }
+          if (metaDesc?.content && metaDesc.content.length > 20) {
+            return { text: metaDesc.content, ogImage, title: ogTitle?.content || null };
+          }
+
+          // Last resort: body text with nav/footer stripped
+          const clone = document.body.cloneNode(true);
+          clone.querySelectorAll('nav, footer, aside, header, script, style, noscript, [role="navigation"], [role="banner"], [role="contentinfo"]').forEach(n => n.remove());
+          return { text: clone.innerText.trim().slice(0, 2000), ogImage, title: ogTitle?.content || null };
         }
       });
       const extracted = result || {};
       pageText = typeof extracted === 'string' ? extracted : (extracted.text || '');
       ogImage = typeof extracted === 'object' ? extracted.ogImage : null;
+      ogTitle = typeof extracted === 'object' ? extracted.title : null;
     } catch (err) {
       console.warn('Failed to extract page text:', err);
     }
 
     const data = {
-      title: tab.title,
+      title: ogTitle || tab.title,
       url: tab.url,
       type: videoId ? 'media' : 'article',
       mediaUrl: videoId ? `https://img.youtube.com/vi/${videoId}/mqdefault.jpg` : (ogImage || null),

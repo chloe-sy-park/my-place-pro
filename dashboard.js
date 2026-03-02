@@ -271,14 +271,7 @@ const openM = (id) => {
 
   const igEmbed = getInstagramEmbedUrl(m.url);
   if (ytId) {
-    // YouTube: embedded player
-    const iframe = document.createElement('iframe');
-    iframe.src = `https://www.youtube.com/embed/${ytId}`;
-    iframe.className = 'w-full aspect-video rounded-xl';
-    iframe.setAttribute('frameborder', '0');
-    iframe.setAttribute('allowfullscreen', '');
-    iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
-    contentEl.appendChild(iframe);
+    createYouTubePlayer(ytId, contentEl);
 
     // Description text below
     if (m.text) {
