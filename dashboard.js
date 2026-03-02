@@ -1,28 +1,7 @@
 let dumps = [], boards = ['Inbox'], currentB = 'Inbox', activeId = null;
 let searchQuery = '', activeType = 'all';
 
-const isVideo = (url) => /\.(mp4|webm|ogg)$/i.test(url);
-
-function getContentType(item) {
-  if (item.videoId || getYouTubeId(item.url)) return 'video';
-  if (/instagram\.com/.test(item.url || '')) return 'instagram';
-  if (/twitter\.com|x\.com/.test(item.url || '')) return 'xpost';
-  if (item.mediaUrl && !isVideo(item.mediaUrl)) return 'image';
-  return 'article';
-}
-
-const TYPE_LABELS = { video: 'Video', instagram: 'Instagram', xpost: 'X Post', image: 'Image', article: 'Web Page' };
-const TYPE_COLORS = {
-  video: 'bg-red-50 text-red-600',
-  instagram: 'bg-pink-50 text-pink-600',
-  xpost: 'bg-slate-800 text-white',
-  image: 'bg-emerald-50 text-emerald-600',
-  article: 'bg-blue-50 text-blue-600'
-};
-
-function getSourceLabel(item) {
-  return TYPE_LABELS[getContentType(item)] || 'Web Page';
-}
+// getContentType, TYPE_LABELS, TYPE_COLORS, getSourceLabel, isVideoUrl — defined in utils.js
 
 const TYPE_FILTERS = [
   { key: 'all', label: 'All' },
@@ -127,7 +106,7 @@ const render = () => {
     const thumbUrl = ytId ? `https://img.youtube.com/vi/${ytId}/mqdefault.jpg` : m.mediaUrl;
 
     // Thumbnail
-    if (thumbUrl && !isVideo(thumbUrl)) {
+    if (thumbUrl && !isVideoUrl(thumbUrl)) {
       const imgWrap = document.createElement('div');
       imgWrap.className = 'relative';
       const img = document.createElement('img');
@@ -337,12 +316,12 @@ const openM = (id) => {
       chrome.tabs.create({ url: m.url });
     });
     contentEl.appendChild(igLink);
-  } else if (m.mediaUrl && !isVideo(m.mediaUrl)) {
+  } else if (m.mediaUrl && !isVideoUrl(m.mediaUrl)) {
     const img = document.createElement('img');
     img.src = m.mediaUrl;
     img.className = 'w-full rounded-xl';
     contentEl.appendChild(img);
-  } else if (m.mediaUrl && isVideo(m.mediaUrl)) {
+  } else if (m.mediaUrl && isVideoUrl(m.mediaUrl)) {
     const video = document.createElement('video');
     video.src = m.mediaUrl;
     video.className = 'w-full rounded-xl';
@@ -363,6 +342,10 @@ const openM = (id) => {
     visitBtn.rel = 'noopener';
     visitBtn.className = 'inline-flex items-center gap-1.5 mt-4 text-xs font-bold text-indigo-500 hover:text-indigo-700 transition';
     visitBtn.textContent = 'Visit original page \u2192';
+    visitBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      chrome.tabs.create({ url: m.url });
+    });
     contentEl.appendChild(visitBtn);
   }
 
@@ -403,7 +386,7 @@ const openM = (id) => {
 
       const rThumb = r.videoId || getYouTubeId(r.url);
       const rThumbUrl = rThumb ? `https://img.youtube.com/vi/${rThumb}/default.jpg` : r.mediaUrl;
-      if (rThumbUrl && !isVideo(rThumbUrl)) {
+      if (rThumbUrl && !isVideoUrl(rThumbUrl)) {
         const img = document.createElement('img');
         img.src = rThumbUrl;
         img.className = 'w-10 h-10 rounded-lg object-cover shrink-0';
@@ -479,9 +462,10 @@ document.getElementById('delete-item').addEventListener('click', () => {
 
 // --- Add Board ---
 document.getElementById('add-b').addEventListener('click', () => {
-  const name = prompt('New board name:');
-  if (name && name.trim() && !boards.includes(name.trim())) {
-    boards.push(name.trim());
+  const raw = prompt('New board name:');
+  const name = raw ? raw.trim().slice(0, 30) : '';
+  if (name && !boards.includes(name)) {
+    boards.push(name);
     chrome.storage.local.set({ boards }, load);
   }
 });

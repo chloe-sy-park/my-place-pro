@@ -1,4 +1,5 @@
 let dumps = [], boards = ['Inbox'], currentBoard = 'Inbox', activeId = null;
+let saveResetTimer = null;
 
 const ENGINE_LABELS = { 'built-in': 'On-Device AI', 'cloud': 'Cloud AI', 'trial': 'Trial AI' };
 
@@ -128,7 +129,7 @@ function renderItems() {
     // Thumbnail
     const ytId = m.videoId || getYouTubeId(m.url);
     const thumbUrl = ytId ? `https://img.youtube.com/vi/${ytId}/mqdefault.jpg` : m.mediaUrl;
-    if (thumbUrl && !/\.(mp4|webm|ogg)$/i.test(thumbUrl)) {
+    if (thumbUrl && !isVideoUrl(thumbUrl)) {
       const img = document.createElement('img');
       img.src = thumbUrl;
       img.className = 'w-full h-28 object-cover rounded-xl mb-3';
@@ -184,26 +185,7 @@ function renderItems() {
   });
 }
 
-function getContentType(item) {
-  if (item.videoId || getYouTubeId(item.url)) return 'video';
-  if (/instagram\.com/.test(item.url || '')) return 'instagram';
-  if (/twitter\.com|x\.com/.test(item.url || '')) return 'xpost';
-  if (item.mediaUrl && !/\.(mp4|webm|ogg)$/i.test(item.mediaUrl)) return 'image';
-  return 'article';
-}
-
-const TYPE_LABELS = { video: 'Video', instagram: 'Instagram', xpost: 'X Post', image: 'Image', article: 'Web Page' };
-const TYPE_COLORS = {
-  video: 'bg-red-50 text-red-600',
-  instagram: 'bg-pink-50 text-pink-600',
-  xpost: 'bg-slate-800 text-white',
-  image: 'bg-emerald-50 text-emerald-600',
-  article: 'bg-blue-50 text-blue-600'
-};
-
-function getSourceLabel(item) {
-  return TYPE_LABELS[getContentType(item)] || 'Web Page';
-}
+// getContentType, TYPE_LABELS, TYPE_COLORS, getSourceLabel — defined in utils.js
 
 // --- Detail View ---
 function openDetail(id) {
@@ -243,7 +225,7 @@ function openDetail(id) {
       chrome.tabs.create({ url: m.url });
     });
     contentEl.appendChild(igLink);
-  } else if (m.mediaUrl && !/\.(mp4|webm|ogg)$/i.test(m.mediaUrl)) {
+  } else if (m.mediaUrl && !isVideoUrl(m.mediaUrl)) {
     const img = document.createElement('img');
     img.src = m.mediaUrl;
     img.className = 'w-full rounded-xl';
@@ -527,7 +509,8 @@ async function saveCurrentPage() {
           saveBtn.className = 'w-full bg-emerald-500 text-white font-bold py-2.5 rounded-xl text-xs';
         }
 
-        setTimeout(() => {
+        clearTimeout(saveResetTimer);
+        saveResetTimer = setTimeout(() => {
           saveBtn.className = 'w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl text-xs transition';
           saveBtn.disabled = false;
           saveBtn.textContent = 'Save This Page';
@@ -544,6 +527,7 @@ async function saveCurrentPage() {
     saveBtn.className = 'w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl text-xs transition';
     status.textContent = 'Cannot save this page.';
     status.className = 'text-center text-[10px] text-red-500 font-bold mt-1.5';
+    setTimeout(() => status.classList.add('hidden'), 3000);
   }
 }
 
@@ -581,9 +565,10 @@ document.getElementById('d-thread-add').addEventListener('click', () => {
 });
 
 document.getElementById('add-board').addEventListener('click', () => {
-  const name = prompt('New board name:');
-  if (name && name.trim() && !boards.includes(name.trim())) {
-    boards.push(name.trim());
+  const raw = prompt('New board name:');
+  const name = raw ? raw.trim().slice(0, 30) : '';
+  if (name && !boards.includes(name)) {
+    boards.push(name);
     chrome.storage.local.set({ boards }, load);
   }
 });

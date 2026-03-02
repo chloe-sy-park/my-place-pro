@@ -178,7 +178,7 @@ async function askAIDirect(prompt, apiKey) {
 
 async function askAI(prompt) {
   const { geminiApiKey, installID } = await chrome.storage.local.get({ geminiApiKey: '', installID: '' });
-  console.log('[JustDump] API key:', geminiApiKey ? `present (${geminiApiKey.length} chars)` : 'EMPTY');
+  console.log('[JustDump] API key:', geminiApiKey ? 'present' : 'EMPTY');
   let cloudError = null;
 
   // Tier 1: Built-in AI (Gemini Nano) — free, instant, private
@@ -263,12 +263,9 @@ chrome.runtime.onMessage.addListener((msg, sender, sendRes) => {
           if (chrome.runtime.lastError) {
             sendRes({ success: false });
           } else {
+            // Only send anonymous category/tags — no URLs, titles, or content
             syncToSupabase({
               user_id: store.installID,
-              url: msg.data.url,
-              title: msg.data.title,
-              original_text: msg.data.text,
-              ai_summary: ai.summary,
               category: ai.category,
               tags: ai.tags
             });

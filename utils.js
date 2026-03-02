@@ -77,6 +77,30 @@ function createYouTubePlayer(ytId, containerEl) {
   containerEl.appendChild(link);
 }
 
+// --- Shared content type helpers (used by sidepanel.js and dashboard.js) ---
+function isVideoUrl(url) { return /\.(mp4|webm|ogg)$/i.test(url); }
+
+function getContentType(item) {
+  if (item.videoId || getYouTubeId(item.url)) return 'video';
+  if (/instagram\.com/.test(item.url || '')) return 'instagram';
+  if (/twitter\.com|x\.com/.test(item.url || '')) return 'xpost';
+  if (item.mediaUrl && !isVideoUrl(item.mediaUrl)) return 'image';
+  return 'article';
+}
+
+const TYPE_LABELS = { video: 'Video', instagram: 'Instagram', xpost: 'X Post', image: 'Image', article: 'Web Page' };
+const TYPE_COLORS = {
+  video: 'bg-red-50 text-red-600',
+  instagram: 'bg-pink-50 text-pink-600',
+  xpost: 'bg-slate-800 text-white',
+  image: 'bg-emerald-50 text-emerald-600',
+  article: 'bg-blue-50 text-blue-600'
+};
+
+function getSourceLabel(item) {
+  return TYPE_LABELS[getContentType(item)] || 'Web Page';
+}
+
 // Image carousel component for multi-image posts (Instagram carousel, etc.)
 function createImageCarousel(images, containerEl) {
   if (!images || images.length === 0) return;

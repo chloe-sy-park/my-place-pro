@@ -94,7 +94,7 @@ function extractContext(el) {
       'span[dir="auto"], .caption, time, [datetime]'
     );
     const metaParts = [...metaEls]
-      .map(el => el.textContent.trim())
+      .map(metaEl => metaEl.textContent.trim())
       .filter(t => t.length > 2 && t.length < 200);
     if (metaParts.length) text = metaParts.join(' | ').slice(0, 500);
   } else if (link) {
