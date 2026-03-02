@@ -181,22 +181,21 @@ function extractContext(el) {
     }
   }
 
-  // Instagram: extract post image from article container (og:image is page-level, not post-level)
+  // Instagram: extract ALL post images from article container (carousel support)
   let firstImage = ogImage;
+  let mediaImages = [];
   if (/instagram\.com/.test(window.location.href)) {
     const article = el.closest('article') || document.querySelector('article');
     if (article) {
-      let bestImg = null;
-      let maxArea = 0;
       for (const img of article.querySelectorAll('img[src]')) {
         if (img.closest('header')) continue; // skip profile pictures
-        const area = img.naturalWidth * img.naturalHeight;
-        if (area > maxArea && img.naturalWidth > 100) {
-          maxArea = area;
-          bestImg = img;
+        if (img.naturalWidth > 100 && img.complete) {
+          const dataUrl = captureImageAsDataUrl(img);
+          if (dataUrl) mediaImages.push(dataUrl);
+          else mediaImages.push(img.src);
         }
       }
-      if (bestImg) firstImage = captureImageAsDataUrl(bestImg) || bestImg.src;
+      if (mediaImages.length > 0) firstImage = mediaImages[0];
     }
   }
 
@@ -214,7 +213,7 @@ function extractContext(el) {
   }
 
   const videoId = getYouTubeId(url);
-  return { url, title, videoId, text, ogImage: firstImage };
+  return { url, title, videoId, text, ogImage: firstImage, mediaImages };
 }
 
 // --- Target detection (media + article containers) ---
@@ -309,6 +308,7 @@ btn.onclick = () => {
     url: ctx.url,
     type: isArt ? 'article' : 'media',
     mediaUrl,
+    mediaUrls: ctx.mediaImages && ctx.mediaImages.length > 1 ? ctx.mediaImages : undefined,
     videoId: ctx.videoId || null,
     text: text
   };

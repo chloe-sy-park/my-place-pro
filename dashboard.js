@@ -301,7 +301,7 @@ const openM = (id) => {
   contentEl.textContent = '';
   const ytId = m.videoId || getYouTubeId(m.url);
 
-  const igEmbed = getInstagramEmbedUrl(m.url);
+  const isInstagram = /instagram\.com/.test(m.url || '');
   if (ytId) {
     createYouTubePlayer(ytId, contentEl);
 
@@ -312,15 +312,31 @@ const openM = (id) => {
       desc.textContent = m.text.slice(0, 1000);
       contentEl.appendChild(desc);
     }
-  } else if (igEmbed) {
-    // Instagram: embedded post
-    const iframe = document.createElement('iframe');
-    iframe.src = igEmbed;
-    iframe.className = 'w-full rounded-xl';
-    iframe.style.minHeight = '500px';
-    iframe.setAttribute('frameborder', '0');
-    iframe.setAttribute('scrolling', 'no');
-    contentEl.appendChild(iframe);
+  } else if (isInstagram) {
+    // Show saved images with carousel instead of broken iframe embed
+    const images = m.mediaUrls || (m.mediaUrl ? [m.mediaUrl] : []);
+    if (images.length > 0) {
+      createImageCarousel(images, contentEl);
+    }
+    // Caption text below images
+    if (m.text) {
+      const caption = document.createElement('div');
+      caption.className = 'mt-4 text-sm text-slate-600 whitespace-pre-wrap leading-relaxed';
+      caption.textContent = m.text.slice(0, 1000);
+      contentEl.appendChild(caption);
+    }
+    // Link to original post
+    const igLink = document.createElement('a');
+    igLink.href = m.url;
+    igLink.target = '_blank';
+    igLink.rel = 'noopener';
+    igLink.className = 'inline-flex items-center gap-1.5 mt-3 text-xs font-bold text-pink-500 hover:text-pink-700 transition';
+    igLink.textContent = 'View on Instagram \u2192';
+    igLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      chrome.tabs.create({ url: m.url });
+    });
+    contentEl.appendChild(igLink);
   } else if (m.mediaUrl && !isVideo(m.mediaUrl)) {
     const img = document.createElement('img');
     img.src = m.mediaUrl;

@@ -215,17 +215,34 @@ function openDetail(id) {
   const contentEl = document.getElementById('d-content');
   contentEl.textContent = '';
   const ytId = m.videoId || getYouTubeId(m.url);
-  const igEmbed = getInstagramEmbedUrl(m.url);
+  const isInstagram = /instagram\.com/.test(m.url || '');
   if (ytId) {
     createYouTubePlayer(ytId, contentEl);
-  } else if (igEmbed) {
-    const iframe = document.createElement('iframe');
-    iframe.src = igEmbed;
-    iframe.className = 'w-full rounded-xl';
-    iframe.style.minHeight = '400px';
-    iframe.setAttribute('frameborder', '0');
-    iframe.setAttribute('scrolling', 'no');
-    contentEl.appendChild(iframe);
+  } else if (isInstagram) {
+    // Show saved images with carousel instead of broken iframe embed
+    const images = m.mediaUrls || (m.mediaUrl ? [m.mediaUrl] : []);
+    if (images.length > 0) {
+      createImageCarousel(images, contentEl);
+    }
+    // Caption text below images
+    if (m.text) {
+      const caption = document.createElement('p');
+      caption.className = 'text-xs text-slate-600 mt-3 whitespace-pre-wrap line-clamp-6';
+      caption.textContent = m.text.slice(0, 500);
+      contentEl.appendChild(caption);
+    }
+    // Link to original post
+    const igLink = document.createElement('a');
+    igLink.href = m.url;
+    igLink.target = '_blank';
+    igLink.rel = 'noopener';
+    igLink.className = 'flex items-center gap-1.5 mt-2 text-xs font-bold text-pink-500 hover:text-pink-700 transition';
+    igLink.textContent = 'View on Instagram \u2192';
+    igLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      chrome.tabs.create({ url: m.url });
+    });
+    contentEl.appendChild(igLink);
   } else if (m.mediaUrl && !/\.(mp4|webm|ogg)$/i.test(m.mediaUrl)) {
     const img = document.createElement('img');
     img.src = m.mediaUrl;
@@ -375,11 +392,12 @@ async function saveCurrentPage() {
             if (parts.length) return { text: parts.join('\n'), ogImage, title: ogTitle?.content || null };
           }
 
-          // Instagram: extract username + caption + post image
+          // Instagram: extract username + caption + ALL post images (carousel support)
           if (/instagram\.com\/(p|reel|reels)\//.test(url)) {
             const parts = [];
             const article = document.querySelector('article');
             let postImage = ogImage;
+            let postImages = [];
             if (article) {
               const user = article.querySelector('header a');
               if (user) parts.push('@' + user.textContent.trim());
@@ -394,35 +412,40 @@ async function saveCurrentPage() {
                 const tags = [...hashtags].map(a => a.textContent.trim()).filter(Boolean);
                 if (tags.length) parts.push('Hashtags: ' + tags.join(' '));
               }
-              // Extract post image from article and capture as data URL (CORS blocks CDN in extension)
-              let bestImg = null, maxArea = 0;
+              // Extract ALL post images (carousel support) and capture as data URLs
               for (const img of article.querySelectorAll('img[src]')) {
                 if (img.closest('header')) continue;
-                const area = img.naturalWidth * img.naturalHeight;
-                if (area > maxArea && img.naturalWidth > 100) {
-                  maxArea = area;
-                  bestImg = img;
+                if (img.naturalWidth > 100 && img.complete) {
+                  try {
+                    const scale = Math.min(1, 400 / img.naturalWidth);
+                    const canvas = document.createElement('canvas');
+                    canvas.width = Math.round(img.naturalWidth * scale);
+                    canvas.height = Math.round(img.naturalHeight * scale);
+                    canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+                    postImages.push(canvas.toDataURL('image/jpeg', 0.6));
+                  } catch (e) {
+                    postImages.push(img.src);
+                  }
                 }
               }
-              if (bestImg && bestImg.complete && bestImg.naturalWidth > 0) {
-                try {
-                  const scale = Math.min(1, 400 / bestImg.naturalWidth);
-                  const canvas = document.createElement('canvas');
-                  canvas.width = Math.round(bestImg.naturalWidth * scale);
-                  canvas.height = Math.round(bestImg.naturalHeight * scale);
-                  canvas.getContext('2d').drawImage(bestImg, 0, 0, canvas.width, canvas.height);
-                  postImage = canvas.toDataURL('image/jpeg', 0.6);
-                } catch (e) {
-                  postImage = bestImg.src;
-                }
-              }
+              if (postImages.length > 0) postImage = postImages[0];
+            }
+            // Fallback: use og:description if no caption found
+            if (!parts.length && ogDesc?.content) {
+              parts.push(ogDesc.content.slice(0, 500));
             }
             // Use og:title but fall back to extracted username if og:title is generic
             let igTitle = ogTitle?.content || null;
             if (igTitle && /^(Instagram|.*게시물.*Instagram|.*Photos.*Videos)/.test(igTitle)) {
               igTitle = parts.length > 0 ? parts[0].slice(0, 100) : null;
             }
-            if (parts.length) return { text: parts.join('\n'), ogImage: postImage, title: igTitle };
+            // Always return data (even if only og:image available)
+            return {
+              text: parts.join('\n') || '',
+              ogImage: postImage,
+              title: igTitle,
+              images: postImages.length > 1 ? postImages : undefined
+            };
           }
 
           // Twitter/X: extract tweet text
@@ -460,11 +483,15 @@ async function saveCurrentPage() {
       console.warn('Failed to extract page text:', err);
     }
 
+    // Extract carousel images if available
+    const extractedImages = (typeof extracted === 'object' && extracted.images) ? extracted.images : undefined;
+
     const data = {
       title: ogTitle || tab.title,
       url: tab.url,
       type: videoId ? 'media' : 'article',
       mediaUrl: videoId ? `https://img.youtube.com/vi/${videoId}/mqdefault.jpg` : (ogImage || null),
+      mediaUrls: extractedImages,
       text: pageText,
       note: document.getElementById('note').value,
       videoId: videoId,
