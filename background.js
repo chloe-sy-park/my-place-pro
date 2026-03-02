@@ -141,7 +141,7 @@ async function askAITrial(prompt, installID) {
 
 // Direct Gemini call (user's own API key) — throws on failure for fallback chain
 async function askAIDirect(prompt, apiKey) {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${apiKey}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${apiKey}`;
   const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
