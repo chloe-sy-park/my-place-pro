@@ -8,11 +8,6 @@ btnLabel.textContent = 'Save to JustDump';
 btn.appendChild(btnLabel);
 document.body.appendChild(btn);
 
-function getYouTubeId(url) {
-  const m = url.match(/(?:youtu\.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=|shorts\/)([^#&?]*)/);
-  return (m && m[1].length === 11) ? m[1] : null;
-}
-
 function extractContext(el) {
   let url = window.location.href;
   let title = document.title;
@@ -139,6 +134,8 @@ document.addEventListener('mouseover', (e) => {
     btn.classList.remove('saved');
     btn.style.background = '';
     btnLabel.textContent = isArticle ? 'Save Article' : 'Save to JustDump';
+  } else if (e.target !== btn && !btn.contains(e.target)) {
+    btn.style.display = 'none';
   }
 });
 

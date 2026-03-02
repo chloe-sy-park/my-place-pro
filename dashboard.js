@@ -1,11 +1,6 @@
 let dumps = [], boards = ['Inbox'], currentB = 'Inbox', activeId = null;
 let searchQuery = '', activeType = 'all';
 
-function getYouTubeId(url) {
-  const match = (url || '').match(/(?:youtu\.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=|shorts\/)([^#&?]*)/);
-  return (match && match[1].length === 11) ? match[1] : null;
-}
-
 const isVideo = (url) => /\.(mp4|webm|ogg)$/i.test(url);
 
 function getContentType(item) {
@@ -241,6 +236,16 @@ const openM = (id) => {
     sumWrap.style.display = '';
   } else {
     sumWrap.style.display = 'none';
+  }
+
+  // Note
+  const noteWrap = document.getElementById('m-note-wrap');
+  const noteEl = document.getElementById('m-note');
+  if (m.note && m.note.trim()) {
+    noteEl.textContent = m.note;
+    noteWrap.classList.remove('hidden');
+  } else {
+    noteWrap.classList.add('hidden');
   }
 
   // Tags

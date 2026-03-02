@@ -1,10 +1,5 @@
 let dumps = [], boards = ['Inbox'], currentBoard = 'Inbox', activeId = null;
 
-function getYouTubeId(url) {
-  const match = (url || '').match(/(?:youtu\.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=|shorts\/)([^#&?]*)/);
-  return (match && match[1].length === 11) ? match[1] : null;
-}
-
 // --- Data Loading ---
 function load() {
   chrome.storage.local.get({ dumps: [], boards: ['Inbox'] }, (res) => {
@@ -46,7 +41,9 @@ async function loadCurrentPage() {
     } else {
       preview.classList.add('hidden');
     }
-  } catch (_) {}
+  } catch (err) {
+    console.warn('Failed to load current page info:', err);
+  }
 }
 
 // --- Board Filter ---
@@ -233,6 +230,16 @@ function openDetail(id) {
     sumWrap.style.display = 'none';
   }
 
+  // Note
+  const noteWrap = document.getElementById('d-note-wrap');
+  const noteEl = document.getElementById('d-note');
+  if (m.note && m.note.trim()) {
+    noteEl.textContent = m.note;
+    noteWrap.classList.remove('hidden');
+  } else {
+    noteWrap.classList.add('hidden');
+  }
+
   // Tags
   const tagsEl = document.getElementById('d-tags');
   tagsEl.textContent = '';
@@ -263,7 +270,9 @@ function openDetail(id) {
     const idx = dumps.findIndex(x => x.id === id);
     if (idx !== -1) {
       dumps[idx].board = boardSelect.value;
-      chrome.storage.local.set({ dumps });
+      chrome.storage.local.set({ dumps }, () => {
+        renderItems();
+      });
     }
   };
 
@@ -340,7 +349,9 @@ async function saveCurrentPage() {
         }
       });
       pageText = result || '';
-    } catch (_) {}
+    } catch (err) {
+      console.warn('Failed to extract page text:', err);
+    }
 
     const data = {
       title: tab.title,
@@ -374,7 +385,8 @@ async function saveCurrentPage() {
         }, 1500);
       }
     });
-  } catch (_) {
+  } catch (err) {
+    console.warn('Save failed:', err);
     saveBtn.disabled = false;
     saveBtn.textContent = 'Save This Page';
     saveBtn.className = 'w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl text-xs transition';

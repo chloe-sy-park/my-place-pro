@@ -1,6 +1,6 @@
-const SUPABASE_URL = "https://gohuxtohtmajbkxkwoaq.supabase.co";
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdvaHV4dG9odG1hamJreGt3b2FxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIxMDQ2MzgsImV4cCI6MjA4NzY4MDYzOH0.SQTHVc0VgdeJDHYbCJ0L8VjgxgBTiKwHbcWMENvOHdc";
-const TRIAL_FUNCTION_URL = "https://gohuxtohtmajbkxkwoaq.supabase.co/functions/v1/analyze";
+const SUPABASE_URL = "";
+const SUPABASE_KEY = "";
+const TRIAL_FUNCTION_URL = "";
 
 const DAILY_TRIAL_LIMIT = 10;
 
@@ -38,8 +38,8 @@ async function syncToSupabase(payload) {
       },
       body: JSON.stringify(payload)
     });
-  } catch (_) {
-    // Sync failure is non-critical
+  } catch (err) {
+    console.warn('Supabase sync failed:', err);
   }
 }
 
@@ -78,7 +78,8 @@ async function askAITrial(prompt, installID) {
     await chrome.storage.local.set({ trialDate: today, trialCount: count });
 
     return json;
-  } catch (_) {
+  } catch (err) {
+    console.warn('AI trial call failed:', err);
     return { summary: 'AI analysis failed.', category: 'Uncategorized', tags: [], board: 'Inbox' };
   }
 }
@@ -111,7 +112,8 @@ async function askAIDirect(prompt, apiKey) {
     }
     const json = await res.json();
     return JSON.parse(json.candidates[0].content.parts[0].text);
-  } catch (_) {
+  } catch (err) {
+    console.warn('AI direct call failed:', err);
     return { summary: 'AI analysis failed.', category: 'Uncategorized', tags: [], board: 'Inbox' };
   }
 }
@@ -144,7 +146,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendRes) => {
           tags: ai.tags,
           id: crypto.randomUUID(),
           threads: [],
-          date: new Date().toLocaleDateString(),
+          date: new Date().toISOString().split('T')[0],
           board: finalBoard
         };
 
@@ -165,7 +167,8 @@ chrome.runtime.onMessage.addListener((msg, sender, sendRes) => {
             sendRes({ success: true, board: finalBoard });
           }
         });
-      }).catch(() => {
+      }).catch((err) => {
+        console.warn('Save failed:', err);
         sendRes({ success: false });
       });
     });
