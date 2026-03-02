@@ -13,6 +13,14 @@ function extractContext(el) {
   let title = document.title;
   let text = '';
 
+  // Open Graph meta tags (general fallback — platform-specific logic below overrides)
+  const ogTitle = document.querySelector('meta[property="og:title"]');
+  const ogDesc = document.querySelector('meta[property="og:description"]');
+  const ogImg = document.querySelector('meta[property="og:image"]');
+  if (ogTitle && ogTitle.content && ogTitle.content.length > 2) title = ogTitle.content;
+  if (ogDesc && ogDesc.content) text = ogDesc.content.slice(0, 500);
+  const ogImage = (ogImg && ogImg.content) ? ogImg.content : null;
+
   // Find closest link to get the real destination URL
   const link = el.closest('a[href]');
   if (link && link.href) {
@@ -100,7 +108,7 @@ function extractContext(el) {
   }
 
   const videoId = getYouTubeId(url);
-  return { url, title, videoId, text };
+  return { url, title, videoId, text, ogImage };
 }
 
 document.addEventListener('mouseover', (e) => {
@@ -148,7 +156,7 @@ btn.onclick = () => {
     type: isArt ? 'article' : 'media',
     mediaUrl: ctx.videoId
       ? `https://img.youtube.com/vi/${ctx.videoId}/mqdefault.jpg`
-      : (target.src || target.currentSrc || null),
+      : (target.src || target.currentSrc || ctx.ogImage || null),
     videoId: ctx.videoId || null,
     text: isArt ? document.body.innerText.slice(0, 1500) : ctx.text
   };

@@ -4,6 +4,59 @@ const TRIAL_FUNCTION_URL = "";
 
 const DAILY_TRIAL_LIMIT = 10;
 
+// --- Built-in AI (Gemini Nano via Prompt API) ---
+let builtInSession = null;
+
+const BUILTIN_SCHEMA = {
+  type: "object",
+  properties: {
+    summary: { type: "string" },
+    category: { type: "string" },
+    tags: { type: "array", items: { type: "string" } },
+    board: { type: "string" }
+  },
+  required: ["summary", "category", "tags", "board"]
+};
+
+async function getBuiltInStatus() {
+  try {
+    if (typeof LanguageModel === 'undefined') return 'unavailable';
+    return await LanguageModel.availability();
+  } catch { return 'unavailable'; }
+}
+
+async function createBuiltInSession() {
+  return LanguageModel.create({
+    initialPrompts: [{
+      role: 'system',
+      content: 'You analyze web content. Return JSON with: summary (1 concise English sentence), category (1 word), tags (exactly 3 relevant lowercase tags), board (from the given list, or "Inbox" if none fits).'
+    }]
+  });
+}
+
+async function askAIBuiltIn(prompt) {
+  if (!builtInSession) {
+    const status = await getBuiltInStatus();
+    if (status !== 'available') throw new Error('Built-in AI ' + status);
+    builtInSession = await createBuiltInSession();
+  }
+
+  // Recreate session if approaching token context window limit
+  if (builtInSession.contextUsage > builtInSession.contextWindow * 0.8) {
+    builtInSession.destroy();
+    builtInSession = null;
+    builtInSession = await createBuiltInSession();
+  }
+
+  const raw = await builtInSession.prompt(prompt, {
+    responseConstraint: BUILTIN_SCHEMA
+  });
+  return JSON.parse(raw);
+}
+
+// Cache Built-in AI status on startup
+getBuiltInStatus().then(s => chrome.storage.local.set({ builtInAIStatus: s }));
+
 // Open side panel when extension icon is clicked
 chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
 
@@ -84,50 +137,78 @@ async function askAITrial(prompt, installID) {
   }
 }
 
-// Direct Gemini call (user's own API key)
+// Direct Gemini call (user's own API key) — throws on failure for fallback chain
 async function askAIDirect(prompt, apiKey) {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-8b:generateContent?key=${apiKey}`;
-  try {
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: "OBJECT",
-            properties: {
-              summary: { type: "STRING" },
-              category: { type: "STRING" },
-              tags: { type: "ARRAY", items: { type: "STRING" } },
-              board: { type: "STRING" }
-            }
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: "OBJECT",
+          properties: {
+            summary: { type: "STRING" },
+            category: { type: "STRING" },
+            tags: { type: "ARRAY", items: { type: "STRING" } },
+            board: { type: "STRING" }
           }
         }
-      })
-    });
-    if (!res.ok) {
-      throw new Error(`HTTP error! status: ${res.status}`);
-    }
-    const json = await res.json();
-    return JSON.parse(json.candidates[0].content.parts[0].text);
-  } catch (err) {
-    console.warn('AI direct call failed:', err);
-    return { summary: 'AI analysis failed.', category: 'Uncategorized', tags: [], board: 'Inbox' };
-  }
+      }
+    })
+  });
+  if (!res.ok) throw new Error(`Gemini API HTTP ${res.status}`);
+  const json = await res.json();
+  return JSON.parse(json.candidates[0].content.parts[0].text);
 }
 
 async function askAI(prompt) {
   const { geminiApiKey, installID } = await chrome.storage.local.get({ geminiApiKey: '', installID: '' });
 
-  if (geminiApiKey) {
-    return askAIDirect(prompt, geminiApiKey);
+  // Tier 1: Built-in AI (Gemini Nano) — free, instant, private
+  try {
+    const r = await askAIBuiltIn(prompt);
+    r._engine = 'built-in';
+    return r;
+  } catch (err) {
+    console.warn('Built-in AI skipped:', err.message);
   }
-  return askAITrial(prompt, installID);
+
+  // Tier 2: Gemini Cloud — user's own API key
+  if (geminiApiKey) {
+    try {
+      const r = await askAIDirect(prompt, geminiApiKey);
+      r._engine = 'cloud';
+      return r;
+    } catch (err) {
+      console.warn('Cloud AI failed:', err.message);
+    }
+  }
+
+  // Tier 3: Trial — Supabase Edge Function (10/day)
+  const r = await askAITrial(prompt, installID);
+  r._engine = 'trial';
+  return r;
 }
 
 chrome.runtime.onMessage.addListener((msg, sender, sendRes) => {
+  if (msg.action === 'getAIStatus') {
+    getBuiltInStatus().then(builtIn => {
+      chrome.storage.local.get({ geminiApiKey: '', trialDate: '', trialCount: 0 }, (store) => {
+        const today = new Date().toISOString().split('T')[0];
+        const trialUsed = store.trialDate === today ? store.trialCount : 0;
+        sendRes({
+          builtIn,
+          hasApiKey: !!store.geminiApiKey,
+          trialRemaining: Math.max(0, DAILY_TRIAL_LIMIT - trialUsed)
+        });
+      });
+    });
+    return true;
+  }
+
   if (msg.action === 'save') {
     chrome.storage.local.get({ dumps: [], boards: ['Inbox'], installID: null }, (store) => {
       const boardList = store.boards.join(', ');
@@ -147,7 +228,8 @@ chrome.runtime.onMessage.addListener((msg, sender, sendRes) => {
           id: crypto.randomUUID(),
           threads: [],
           date: new Date().toISOString().split('T')[0],
-          board: finalBoard
+          board: finalBoard,
+          engine: ai._engine || null
         };
 
         chrome.storage.local.set({ dumps: [item, ...store.dumps] }, () => {
@@ -164,7 +246,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendRes) => {
               tags: ai.tags
             });
 
-            sendRes({ success: true, board: finalBoard });
+            sendRes({ success: true, board: finalBoard, engine: ai._engine || null });
           }
         });
       }).catch((err) => {

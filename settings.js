@@ -17,11 +17,46 @@ document.addEventListener('DOMContentLoaded', () => {
     updateTrialDisplay(res.geminiApiKey, res.trialDate, res.trialCount);
   });
 
+  // Check Built-in AI availability
+  chrome.runtime.sendMessage({ action: 'getAIStatus' }, (s) => {
+    if (chrome.runtime.lastError || !s) return;
+    const container = document.getElementById('builtin-status');
+    const label = document.getElementById('builtin-label');
+    const badge = document.getElementById('builtin-badge');
+    const desc = document.getElementById('builtin-desc');
+
+    if (s.builtIn === 'available') {
+      container.className = 'bg-emerald-50/80 backdrop-blur border border-emerald-100 rounded-xl p-4 space-y-1';
+      label.className = 'text-sm font-bold text-emerald-600';
+      badge.textContent = 'Active';
+      badge.className = 'text-xs font-bold text-emerald-500';
+      desc.textContent = 'Gemini Nano is available. AI analysis runs locally — free, instant, and private.';
+    } else if (s.builtIn === 'downloading') {
+      container.className = 'bg-blue-50/80 backdrop-blur border border-blue-100 rounded-xl p-4 space-y-1';
+      label.className = 'text-sm font-bold text-blue-600';
+      badge.textContent = 'Downloading...';
+      badge.className = 'text-xs font-bold text-blue-500';
+      desc.textContent = 'Gemini Nano is downloading. Cloud AI or Trial will be used in the meantime.';
+    } else if (s.builtIn === 'after-download') {
+      container.className = 'bg-amber-50/80 backdrop-blur border border-amber-100 rounded-xl p-4 space-y-1';
+      label.className = 'text-sm font-bold text-amber-600';
+      badge.textContent = 'Ready to download';
+      badge.className = 'text-xs font-bold text-amber-500';
+      desc.textContent = 'Your device supports Gemini Nano. The model will download automatically on first use (~1.7 GB).';
+    } else {
+      container.className = 'bg-slate-50/80 backdrop-blur border border-slate-200 rounded-xl p-4 space-y-1';
+      label.className = 'text-sm font-bold text-slate-400';
+      badge.textContent = 'Not available';
+      badge.className = 'text-xs font-bold text-slate-400';
+      desc.textContent = 'On-device AI requires Chrome 138+ with 22GB+ storage and adequate GPU/RAM. Cloud AI or Trial will be used.';
+    }
+  });
+
   function updateTrialDisplay(apiKey, trialDate, trialCount) {
     if (apiKey) {
-      trialLabel.textContent = 'Unlimited AI';
+      trialLabel.textContent = 'Unlimited Cloud AI';
       trialCounter.textContent = '';
-      trialDesc.textContent = 'Your API key is active. AI analysis is unlimited.';
+      trialDesc.textContent = 'Your API key is active. On-device AI (if available) is tried first, then Cloud AI as fallback.';
       trialStatus.className = 'bg-emerald-50/80 backdrop-blur border border-emerald-100 rounded-xl p-4 space-y-1';
       trialLabel.className = 'text-sm font-bold text-emerald-600';
     } else {

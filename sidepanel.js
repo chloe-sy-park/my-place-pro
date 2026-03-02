@@ -1,5 +1,26 @@
 let dumps = [], boards = ['Inbox'], currentBoard = 'Inbox', activeId = null;
 
+const ENGINE_LABELS = { 'built-in': 'On-Device AI', 'cloud': 'Cloud AI', 'trial': 'Trial AI' };
+
+// --- AI Status ---
+function updateAIStatus() {
+  chrome.runtime.sendMessage({ action: 'getAIStatus' }, (s) => {
+    if (chrome.runtime.lastError || !s) return;
+    const el = document.getElementById('ai-status');
+    if (!el) return;
+    if (s.builtIn === 'available') {
+      el.textContent = 'On-Device AI';
+      el.className = 'text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600';
+    } else if (s.hasApiKey) {
+      el.textContent = 'Cloud AI';
+      el.className = 'text-[9px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-600';
+    } else {
+      el.textContent = `Trial (${s.trialRemaining})`;
+      el.className = 'text-[9px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-600';
+    }
+  });
+}
+
 // --- Data Loading ---
 function load() {
   chrome.storage.local.get({ dumps: [], boards: ['Inbox'] }, (res) => {
@@ -301,7 +322,9 @@ async function saveCurrentPage() {
   const saveBtn = document.getElementById('save-btn');
   const status = document.getElementById('save-status');
   saveBtn.disabled = true;
-  saveBtn.textContent = 'Saving...';
+  saveBtn.classList.add('hidden');
+  document.getElementById('save-loading').classList.remove('hidden');
+  document.getElementById('save-loading-text').textContent = 'Analyzing with AI...';
   status.classList.add('hidden');
 
   try {
@@ -310,11 +333,14 @@ async function saveCurrentPage() {
 
     const videoId = getYouTubeId(tab.url || '');
     let pageText = '';
+    let ogImage = null;
     try {
       const [{ result }] = await chrome.scripting.executeScript({
         target: { tabId: tab.id },
         func: () => {
           const url = window.location.href;
+          const ogImg = document.querySelector('meta[property="og:image"]');
+          const ogImage = (ogImg && ogImg.content) ? ogImg.content : null;
 
           // YouTube: extract channel, description, visible content
           if (/youtube\.com\/(watch|shorts)/.test(url)) {
@@ -323,7 +349,7 @@ async function saveCurrentPage() {
             if (ch) parts.push('Channel: ' + ch.textContent.trim());
             const desc = document.querySelector('#description-text, ytd-text-inline-expander, #description');
             if (desc) parts.push(desc.innerText.trim().slice(0, 1000));
-            if (parts.length) return parts.join('\n');
+            if (parts.length) return { text: parts.join('\n'), ogImage };
           }
 
           // Instagram: extract username + caption
@@ -336,19 +362,21 @@ async function saveCurrentPage() {
               const caption = article.querySelector('h1') || article.querySelector('div > span[dir="auto"]');
               if (caption) parts.push(caption.textContent.trim().slice(0, 1000));
             }
-            if (parts.length) return parts.join('\n');
+            if (parts.length) return { text: parts.join('\n'), ogImage };
           }
 
           // Twitter/X: extract tweet text
           if (/twitter\.com|x\.com/.test(url)) {
             const tweet = document.querySelector('[data-testid="tweetText"]');
-            if (tweet) return tweet.textContent.trim().slice(0, 2000);
+            if (tweet) return { text: tweet.textContent.trim().slice(0, 2000), ogImage };
           }
 
-          return document.body.innerText.slice(0, 1500);
+          return { text: document.body.innerText.slice(0, 1500), ogImage };
         }
       });
-      pageText = result || '';
+      const extracted = result || {};
+      pageText = typeof extracted === 'string' ? extracted : (extracted.text || '');
+      ogImage = typeof extracted === 'object' ? extracted.ogImage : null;
     } catch (err) {
       console.warn('Failed to extract page text:', err);
     }
@@ -357,7 +385,7 @@ async function saveCurrentPage() {
       title: tab.title,
       url: tab.url,
       type: videoId ? 'media' : 'article',
-      mediaUrl: videoId ? `https://img.youtube.com/vi/${videoId}/mqdefault.jpg` : null,
+      mediaUrl: videoId ? `https://img.youtube.com/vi/${videoId}/mqdefault.jpg` : (ogImage || null),
       text: pageText,
       note: document.getElementById('note').value,
       videoId: videoId,
@@ -365,33 +393,40 @@ async function saveCurrentPage() {
     };
 
     chrome.runtime.sendMessage({ action: 'save', data }, (response) => {
+      document.getElementById('save-loading').classList.add('hidden');
+      saveBtn.classList.remove('hidden');
+
       if (chrome.runtime.lastError || !response || !response.success) {
         saveBtn.disabled = false;
         saveBtn.textContent = 'Save This Page';
         saveBtn.className = 'w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl text-xs transition';
         status.textContent = 'Save failed. Try again.';
-        status.classList.remove('hidden');
+        status.className = 'text-center text-[10px] text-red-500 font-bold mt-1.5';
       } else {
-        status.textContent = 'Saved!';
-        status.classList.remove('hidden');
+        const engineLabel = ENGINE_LABELS[response.engine] || 'AI';
+        status.textContent = `Saved! (${engineLabel})`;
+        status.className = 'text-center text-[10px] text-emerald-500 font-bold mt-1.5';
         saveBtn.textContent = 'Saved!';
         saveBtn.className = 'w-full bg-emerald-500 text-white font-bold py-2.5 rounded-xl text-xs';
         document.getElementById('note').value = '';
+        updateAIStatus();
         setTimeout(() => {
           saveBtn.className = 'w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl text-xs transition';
           saveBtn.disabled = false;
           saveBtn.textContent = 'Save This Page';
           status.classList.add('hidden');
-        }, 1500);
+        }, 2000);
       }
     });
   } catch (err) {
     console.warn('Save failed:', err);
+    document.getElementById('save-loading').classList.add('hidden');
+    saveBtn.classList.remove('hidden');
     saveBtn.disabled = false;
     saveBtn.textContent = 'Save This Page';
     saveBtn.className = 'w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl text-xs transition';
     status.textContent = 'Cannot save this page.';
-    status.classList.remove('hidden');
+    status.className = 'text-center text-[10px] text-red-500 font-bold mt-1.5';
   }
 }
 
@@ -460,3 +495,4 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
 // --- Init ---
 loadCurrentPage();
 load();
+updateAIStatus();
