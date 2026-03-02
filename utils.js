@@ -45,17 +45,9 @@ function createYouTubePlayer(ytId, containerEl) {
   overlay.appendChild(svg);
   wrapper.appendChild(overlay);
 
-  // Click to load embed (handles Error 153 gracefully — thumbnail is always visible first)
+  // Click opens YouTube directly (avoids Error 153 for non-embeddable videos)
   wrapper.addEventListener('click', () => {
-    const iframe = document.createElement('iframe');
-    iframe.src = `https://www.youtube.com/embed/${ytId}?autoplay=1`;
-    iframe.className = 'absolute inset-0 w-full h-full';
-    iframe.setAttribute('frameborder', '0');
-    iframe.setAttribute('allowfullscreen', '');
-    iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
-    wrapper.textContent = '';
-    wrapper.classList.remove('cursor-pointer', 'group');
-    wrapper.appendChild(iframe);
+    window.open(`https://www.youtube.com/watch?v=${ytId}`, '_blank');
   });
 
   containerEl.appendChild(wrapper);

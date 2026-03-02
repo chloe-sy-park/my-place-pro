@@ -32,6 +32,21 @@ btn.appendChild(btnLabel);
 shadow.appendChild(btn);
 document.body.appendChild(host);
 
+// --- Image capture (converts DOM image to data URL to bypass CORS in extension pages) ---
+function captureImageAsDataUrl(imgEl, maxWidth = 400) {
+  try {
+    if (!imgEl || !imgEl.naturalWidth || !imgEl.complete) return null;
+    const scale = Math.min(1, maxWidth / imgEl.naturalWidth);
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(imgEl.naturalWidth * scale);
+    canvas.height = Math.round(imgEl.naturalHeight * scale);
+    canvas.getContext('2d').drawImage(imgEl, 0, 0, canvas.width, canvas.height);
+    return canvas.toDataURL('image/jpeg', 0.6);
+  } catch (e) {
+    return null; // canvas tainted or other error
+  }
+}
+
 // --- Context extraction ---
 function extractContext(el) {
   let url = window.location.href;
@@ -181,7 +196,7 @@ function extractContext(el) {
           bestImg = img;
         }
       }
-      if (bestImg) firstImage = bestImg.src;
+      if (bestImg) firstImage = captureImageAsDataUrl(bestImg) || bestImg.src;
     }
   }
 
@@ -277,15 +292,23 @@ btn.onclick = () => {
     }
   }
 
+  // Determine mediaUrl — for Instagram, capture as data URL to avoid CORS
+  let mediaUrl;
+  if (ctx.videoId) {
+    mediaUrl = `https://img.youtube.com/vi/${ctx.videoId}/mqdefault.jpg`;
+  } else if (isArt) {
+    mediaUrl = ctx.ogImage || null;
+  } else if (/instagram\.com/.test(window.location.href) && target.tagName === 'IMG') {
+    mediaUrl = captureImageAsDataUrl(target) || ctx.ogImage || null;
+  } else {
+    mediaUrl = target.src || target.currentSrc || ctx.ogImage || null;
+  }
+
   const data = {
     title: ctx.title,
     url: ctx.url,
     type: isArt ? 'article' : 'media',
-    mediaUrl: ctx.videoId
-      ? `https://img.youtube.com/vi/${ctx.videoId}/mqdefault.jpg`
-      : isArt
-        ? (ctx.ogImage || null)
-        : (target.src || target.currentSrc || ctx.ogImage || null),
+    mediaUrl,
     videoId: ctx.videoId || null,
     text: text
   };

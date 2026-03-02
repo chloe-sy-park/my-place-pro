@@ -394,7 +394,7 @@ async function saveCurrentPage() {
                 const tags = [...hashtags].map(a => a.textContent.trim()).filter(Boolean);
                 if (tags.length) parts.push('Hashtags: ' + tags.join(' '));
               }
-              // Extract post image from article (skip profile pics in header)
+              // Extract post image from article and capture as data URL (CORS blocks CDN in extension)
               let bestImg = null, maxArea = 0;
               for (const img of article.querySelectorAll('img[src]')) {
                 if (img.closest('header')) continue;
@@ -404,7 +404,18 @@ async function saveCurrentPage() {
                   bestImg = img;
                 }
               }
-              if (bestImg) postImage = bestImg.src;
+              if (bestImg && bestImg.complete && bestImg.naturalWidth > 0) {
+                try {
+                  const scale = Math.min(1, 400 / bestImg.naturalWidth);
+                  const canvas = document.createElement('canvas');
+                  canvas.width = Math.round(bestImg.naturalWidth * scale);
+                  canvas.height = Math.round(bestImg.naturalHeight * scale);
+                  canvas.getContext('2d').drawImage(bestImg, 0, 0, canvas.width, canvas.height);
+                  postImage = canvas.toDataURL('image/jpeg', 0.6);
+                } catch (e) {
+                  postImage = bestImg.src;
+                }
+              }
             }
             // Use og:title but fall back to extracted username if og:title is generic
             let igTitle = ogTitle?.content || null;
